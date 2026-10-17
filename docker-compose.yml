@@ -1,0 +1,72 @@
+services:
+  spark-master:
+    image: docker.io/bitnamilegacy/spark:3.5.6
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8080:8080"   # Spark Master Web UI
+      - "7077:7077"   # Spark Master Port
+    cpus: 1.0
+    mem_limit: 1024m
+    volumes:
+      - ./data:/opt/bitnami/spark/data:z
+      - ./scripts:/opt/bitnami/spark/scripts:z
+
+  spark-worker-1:
+    image: docker.io/bitnamilegacy/spark:3.5.6
+    container_name: spark-worker-1
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2048M
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+    ports:
+      - "8081:8081"   # Worker 1 Web UI
+    cpus: 2.0
+    mem_limit: 2560m   # Gông cứng 2.5GB RAM bằng cgroups
+    volumes:
+      - ./data:/opt/bitnami/spark/data:z
+      - ./scripts:/opt/bitnami/spark/scripts:z
+    depends_on:
+      - spark-master
+
+  spark-worker-2:
+    image: docker.io/bitnamilegacy/spark:3.5.6
+    container_name: spark-worker-2
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=2048M
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+    ports:
+      - "8082:8081"   # Worker 2 Web UI (trong container vẫn là 8081)
+    cpus: 2.0
+    mem_limit: 2560m   # Gông cứng 2.5GB RAM bằng cgroups
+    volumes:
+      - ./data:/opt/bitnami/spark/data:z
+      - ./scripts:/opt/bitnami/spark/scripts:z
+    depends_on:
+      - spark-master
+
+  airflow-standalone:
+    image: docker.io/apache/airflow:2.9.0-python3.10
+    container_name: airflow-standalone
+    command: standalone
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    ports:
+      - "8085:8080"   # Đổi port máy host sang 8085 để tránh trùng Spark Master
+    cpus: 1.5
+    mem_limit: 1536m
+    # Rootless podman: map user host -> uid 50000 của airflow để ghi được vào ./data
+    userns_mode: "keep-id:uid=50000,gid=0"
+    volumes:
+      - ./dags:/opt/airflow/dags:z
+      - ./data:/opt/airflow/data:z

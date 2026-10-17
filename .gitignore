@@ -1,0 +1,95 @@
+# =================( DỮ LIỆU & ARTIFACTS )=================
+# Bỏ qua toàn bộ dữ liệu thô, nén và kết quả trung gian
+data/
+*.parquet
+*.csv
+*.tsv
+*.zip
+*.tar.gz
+*.gz
+*.json
+*.duckdb
+*.db
+*.sqlite3
+
+# =================( PYTHON & VIRTUAL ENVIRONMENT )=================
+# Bytecode & Caching
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution & Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# =================( JUPYTER NOTEBOOK )=================
+.ipynb_checkpoints
+*_checkpoint.ipynb
+
+# =================( LOGS & TỆP TẠM )=================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.tmp/
+tmp/
+*.tmp
+
+# =================( APACHE AIRFLOW )=================
+airflow.db
+airflow.cfg
+unittests.cfg
+webserver_config.py
+standalone_admin_password.txt
+*.pid
+
+# =================( DOCKER & ENVIRONMENT VARIABLES )=================
+# Tránh lộ token, key hoặc mật khẩu cấu hình
+.env
+.env.local
+.env.*.local
+
+# =================( IDE & HỆ THỐNG )=================
+# VS Code (giữ lại cấu hình chạy chung nếu cần)
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# PyCharm / IntelliJ
+.idea/
+
+# macOS / Windows / Linux desktop metadata
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
