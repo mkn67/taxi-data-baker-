@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   spark-master:
     image: docker.io/bitnamilegacy/spark:3.5.6
@@ -29,7 +31,7 @@ services:
     ports:
       - "8081:8081"   # Worker 1 Web UI
     cpus: 2.0
-    mem_limit: 2560m   # Gông cứng 2.5GB RAM bằng cgroups
+    mem_limit: 2560m   # Giới hạn 2.5GB RAM bằng cgroups
     volumes:
       - ./data:/opt/bitnami/spark/data:z
       - ./scripts:/opt/bitnami/spark/scripts:z
@@ -46,9 +48,23 @@ services:
       - SPARK_WORKER_MEMORY=2048M
       - SPARK_RPC_AUTHENTICATION_ENABLED=no
     ports:
-      - "8082:8081"   # Worker 2 Web UI (trong container vẫn là 8081)
+      - "8082:8081"   # Worker 2 Web UI (port nội bộ container là 8081)
     cpus: 2.0
-    mem_limit: 2560m   # Gông cứng 2.5GB RAM bằng cgroups
+    mem_limit: 2560m   # Giới hạn 2.5GB RAM bằng cgroups
+    volumes:
+      - ./data:/opt/bitnami/spark/data:z
+      - ./scripts:/opt/bitnami/spark/scripts:z
+    depends_on:
+      - spark-master
+
+  spark-driver:
+    image: docker.io/bitnamilegacy/spark:3.5.6
+    container_name: spark-driver
+    command: ["sleep", "infinity"]
+    ports:
+      - "4040:4040"   # Spark Application UI khi nộp job
+    cpus: 2.0
+    mem_limit: 2048m   # Khống chế 2GB RAM riêng cho tiến trình Driver
     volumes:
       - ./data:/opt/bitnami/spark/data:z
       - ./scripts:/opt/bitnami/spark/scripts:z
@@ -62,10 +78,9 @@ services:
     environment:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
     ports:
-      - "8085:8080"   # Đổi port máy host sang 8085 để tránh trùng Spark Master
+      - "8085:8080"   # Tránh trùng port 8080 với Spark Master Web UI
     cpus: 1.5
     mem_limit: 1536m
-    # Rootless podman: map user host -> uid 50000 của airflow để ghi được vào ./data
     userns_mode: "keep-id:uid=50000,gid=0"
     volumes:
       - ./dags:/opt/airflow/dags:z
