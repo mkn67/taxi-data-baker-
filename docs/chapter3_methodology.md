@@ -1,0 +1,23 @@
+# Chapter 3 methodology notes
+
+## Pipeline and benchmark definitions
+
+The input is January 2026 cleaned HVFHV Silver Parquet. ND2 groups by `PULocationID` and computes trip count, average `base_passenger_fare`, and total `trip_miles`. The baseline uses direct `groupBy`; uniform salting partitions every key into eight buckets; selective salting uses the stored P95 pickup hotspot IDs and assigns salt 0 to all other keys. Both salted methods aggregate by `(PULocationID, salt)` and combine partials by pickup zone.
+
+The hotspot artifact was built from per-zone trip counts. The source implementation uses exact nearest-rank P95: rank `ceil(0.95*n)` after sorting counts, with all zones at or above the threshold included. It is not the approximate quantile used by the older exploratory script.
+
+ND3 is an inner join between trips and the OD dimension on `(PULocationID, DOLocationID)`. The baseline disables AQE and broadcast; the AQE method enables adaptive skew join and disables broadcast; the S=8 salted method hashes the trip row attributes for matching hotspot pickup IDs and replicates the corresponding OD rows to salts 0 through 7. Correctness is validated by borough-pair trip count, fare, miles, distinct pickup-zone counts, and pair coverage against DuckDB. The executed physical plan, not configuration alone, is evidence that AQE applied a skew split.
+
+Warm-up actions are distinct from the three measured iterations. Methods rotate order across measured iterations. The reported wall-clock duration is elapsed time from job-group start to completion of the materializing action. Task metrics come from completed Spark UI stages in that job group. The selected skew stage is the one with the greatest sum of shuffle read and write bytes; ties use executor runtime. TSR is the maximum divided by the median of successful-task duration in that selected stage; it uses `executorRunTime` in milliseconds and falls back to Spark’s task duration field when absent. PSR is the maximum per-task record count divided by its median, using the first common available metric in this order: shuffle read records, shuffle write records, input records, output records. PSR is unavailable unless that metric exists for every successful task. Ratios with a zero median are unavailable. Shuffle and spill counters are summed across all completed stages in the run. The task count and per-task duration/record distributions used for TSR/PSR come from the selected completed stage. A collector failure or unavailable value remains null and must not be interpreted as zero.
+
+Each run records the dataset path and a SHA-256 manifest over relative Parquet filenames, sizes, and modification times; it is a manifest identity, not a checksum of file contents. The benchmark correctness tables are small aggregate outputs. Full trip-level data stays distributed; only the per-zone or borough-pair aggregates are brought to the driver for comparison.
+
+## Spatial analysis definition
+
+The spatial builder uses `DOLocationID` and `dropoff_datetime` from Silver and the Taxi Zone shapefile’s `LocationID`, `borough`, and polygon geometry. Zone polygons are dissolved by ID, projected from their declared source CRS to EPSG:32618, checked for validity, and invalid shapes are repaired with Shapely `make_valid` and counted in the audit. Area is calculated in square metres and converted to square kilometres before density calculation.
+
+The project’s existing boundary construction supplies approximate east and west points along 60th Street, EPSG:32618, Zone 161 to orient the south side, and a 5% cross-side-area tolerance. For each Manhattan polygon, the builder compares its area on each side of the approximate line: up to 5% on the north side is `SOUTH_OF_APPROX_60TH`; up to 5% on the south side is `NORTH_OF_APPROX_60TH`; all other Manhattan polygons are `BOUNDARY_AMBIGUOUS`. Non-Manhattan polygons are retained and labeled `OUTSIDE_MANHATTAN`. This is a project-specific geographic comparison, not a definitive legal policy boundary.
+
+Drop-off periods use the hour component of the stored `dropoff_datetime` (Silver schema is timezone-naive): Daytime is 05:00–20:59 and Nighttime is 21:00–04:59. This is not a timezone conversion. The Gold GeoParquet has one record per zone and period, including zero-count zone-periods, polygon area, trip count, density in trips/km², group, and geometry. The audit records total rows, null timestamps, unmatched zone IDs, polygon count, invalid-geometry repairs, CRS/area units, and included/ambiguous group totals.
+
+This analysis is descriptive. Differences across geographic groups do not identify a causal effect of congestion pricing.

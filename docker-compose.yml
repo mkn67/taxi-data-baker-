@@ -1,87 +1,156 @@
-version: '3.8'
+version: "3.8"
+
+x-spark-image: &spark-image
+  image: docker.io/apache/spark:3.5.9-scala2.12-java17-python3-ubuntu
+  user: "0:0"
+  working_dir: /opt/spark/work-dir
+  environment: &spark-common-env
+    SPARK_NO_DAEMONIZE: "true"
+    PYSPARK_PYTHON: python3
+    PYSPARK_DRIVER_PYTHON: python3
+  volumes: &spark-common-volumes
+    - ./data:/opt/spark/data:z
+    - ./scripts:/opt/spark/scripts:z
+    - ./notebooks:/opt/spark/notebooks:z
+    - ./logs/spark-events:/opt/spark/work-dir/logs/spark-events:z
+    - ./data:/home/kedora/SEM5/Bigdata/taxi-data-baker-/data:z
+    - ./scripts:/home/kedora/SEM5/Bigdata/taxi-data-baker-/scripts:z
+    - ./notebooks:/home/kedora/SEM5/Bigdata/taxi-data-baker-/notebooks:z
+    - ./logs/spark-events:/home/kedora/SEM5/Bigdata/taxi-data-baker-/logs/spark-events:z
+  networks:
+    - bigdata
 
 services:
   spark-master:
-    image: docker.io/bitnamilegacy/spark:3.5.6
+    <<: *spark-image
     container_name: spark-master
-    environment:
-      - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
+    hostname: spark-master
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.master.Master
+      - --host
+      - spark-master
+      - --port
+      - "7077"
+      - --webui-port
+      - "8080"
     ports:
-      - "8080:8080"   # Spark Master Web UI
-      - "7077:7077"   # Spark Master Port
+      - "8080:8080"
+      - "7077:7077"
     cpus: 1.0
     mem_limit: 1024m
-    volumes:
-      - ./data:/opt/bitnami/spark/data:z
-      - ./scripts:/opt/bitnami/spark/scripts:z
+    stop_grace_period: 10s
+    healthcheck:
+      # Check the Spark Master Web UI; avoid loopback TCP assumptions.
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://spark-master:8080', timeout=3).read(1)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   spark-worker-1:
-    image: docker.io/bitnamilegacy/spark:3.5.6
+    <<: *spark-image
     container_name: spark-worker-1
+    hostname: spark-worker-1
     environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_CORES=2
-      - SPARK_WORKER_MEMORY=2048M
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      <<: *spark-common-env
+      SPARK_WORKER_CORES: "2"
+      SPARK_WORKER_MEMORY: "2048m"
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - --host
+      - spark-worker-1
+      - --port
+      - "7078"
+      - --webui-port
+      - "8081"
+      - spark://spark-master:7077
     ports:
-      - "8081:8081"   # Worker 1 Web UI
+      - "8081:8081"
     cpus: 2.0
-    mem_limit: 2560m   # Giới hạn 2.5GB RAM bằng cgroups
-    volumes:
-      - ./data:/opt/bitnami/spark/data:z
-      - ./scripts:/opt/bitnami/spark/scripts:z
+    mem_limit: 2560m
+    stop_grace_period: 10s
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
 
   spark-worker-2:
-    image: docker.io/bitnamilegacy/spark:3.5.6
+    <<: *spark-image
     container_name: spark-worker-2
+    hostname: spark-worker-2
     environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_CORES=2
-      - SPARK_WORKER_MEMORY=2048M
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      <<: *spark-common-env
+      SPARK_WORKER_CORES: "2"
+      SPARK_WORKER_MEMORY: "2048m"
+    command:
+      - /opt/spark/bin/spark-class
+      - org.apache.spark.deploy.worker.Worker
+      - --host
+      - spark-worker-2
+      - --port
+      - "7079"
+      - --webui-port
+      - "8081"
+      - spark://spark-master:7077
     ports:
-      - "8082:8081"   # Worker 2 Web UI (port nội bộ container là 8081)
+      - "8082:8081"
     cpus: 2.0
-    mem_limit: 2560m   # Giới hạn 2.5GB RAM bằng cgroups
-    volumes:
-      - ./data:/opt/bitnami/spark/data:z
-      - ./scripts:/opt/bitnami/spark/scripts:z
+    mem_limit: 2560m
+    stop_grace_period: 10s
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
 
   spark-driver:
-    image: docker.io/bitnamilegacy/spark:3.5.6
+    <<: *spark-image
     container_name: spark-driver
-    command: ["sleep", "infinity"]
+    hostname: spark-driver
+    command: ["bash", "-lc", "sleep infinity"]
+    environment:
+      <<: *spark-common-env
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_DRIVER_HOST: spark-driver
     ports:
-      - "4040:4040"   # Spark Application UI khi nộp job
+      - "4040:4040"
     cpus: 2.0
-    mem_limit: 2048m   # Khống chế 2GB RAM riêng cho tiến trình Driver
-    volumes:
-      - ./data:/opt/bitnami/spark/data:z
-      - ./scripts:/opt/bitnami/spark/scripts:z
+    mem_limit: 2560m
+    stop_grace_period: 10s
     depends_on:
-      - spark-master
+      spark-master:
+        condition: service_healthy
+      spark-worker-1:
+        condition: service_started
+      spark-worker-2:
+        condition: service_started
 
   airflow-standalone:
     image: docker.io/apache/airflow:2.9.0-python3.10
     container_name: airflow-standalone
+    hostname: airflow-standalone
     command: standalone
     environment:
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "True"
     ports:
-      - "8085:8080"   # Tránh trùng port 8080 với Spark Master Web UI
+      - "8085:8080"
     cpus: 1.5
-    mem_limit: 1536m
+    mem_limit: 2048m
+    stop_grace_period: 10s
     userns_mode: "keep-id:uid=50000,gid=0"
     volumes:
       - ./dags:/opt/airflow/dags:z
       - ./data:/opt/airflow/data:z
+      - ./logs/airflow:/opt/airflow/logs:z
+    networks:
+      - bigdata
+
+networks:
+  bigdata:
+    driver: bridge
