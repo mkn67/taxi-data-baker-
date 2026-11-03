@@ -1,3 +1,5 @@
-# Chapter 2 scripts
+# Scripts Chương 2 — Tiền xử lý dữ liệu
 
-Contains exploratory analysis, Silver preprocessing, sequential data quality audit, boundary checks, scaling input statistics and Chapter 2 figures. Data outputs remain in the shared `data/` tree.
+Chứa scripts tạo Silver và audit tuần tự, kiểm tra zone quanh ranh giới, kiểm tra phụ phí và tạo hình cho Chương 2. Khảo sát ban đầu nằm ở `chapter_01/`; hình quy mô dữ liệu nhiều tháng cho Chương 3 nằm ở `chapter_03/`. Output vẫn được ghi vào `data/` dùng chung.
+
+Điểm bắt đầu: `02_preprocess_and_audit.py`.

@@ -18,7 +18,7 @@ Khi dữ liệu chuyến tập trung ở một số vùng, các task Spark có t
 
 ## Pipeline
 
-![Sơ đồ pipeline dữ liệu và benchmark](data/benchmarks/chapter3_pipeline_architecture.png)
+![Sơ đồ pipeline dữ liệu và benchmark](docs/assets/readme/pipeline-architecture.png)
 
 Luồng chính: **Raw Parquet → tiền xử lý → Silver + hotspot P95 + OD dimension → ND2/ND3 trên Spark → metrics và execution plan → DuckDB correctness audit**. Nhánh spatial dùng Silver tháng 01 cùng Taxi Zone geometry để tạo Gold và bản đồ.
 
@@ -60,7 +60,7 @@ ND2 và ND3 cũng đã chạy trên Silver tháng 02–05. Cả năm tháng là 
 
 ### Spatial result
 
-![Mật độ điểm trả khách ở Manhattan](data/benchmarks/figure_3_1_dropoff_density.png)
+![Mật độ điểm trả khách ở Manhattan](docs/assets/readme/manhattan-dropoff-density.png)
 
 Gold tháng 01 phân loại 263 Taxi Zone thành 41 zone phía Nam, 23 phía Bắc, 5 vùng mơ hồ và 194 zone ngoài Manhattan theo đường 60th Street xấp xỉ. Đây là mô tả địa lý, **không phải phân loại CRZ chính thức hay kết quả nhân quả**. Daytime dài 16 giờ, Nighttime 8 giờ; chỉ so Bắc–Nam trong cùng khung giờ, hoặc chuẩn hóa theo giờ nếu đối chiếu Ngày với Đêm.
 
