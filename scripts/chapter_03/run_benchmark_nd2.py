@@ -2,7 +2,7 @@
 """CLI Runner for Nội dung 2: Aggregation Skew & Salting Benchmark (NYC HVFHV 2026).
 
 Usage:
-  python3 scripts/run_benchmark_nd2.py [--mode {pilot,full}] [--master <url>] [--partitions <num>]
+  python3 scripts/chapter_03/run_benchmark_nd2.py [--mode {pilot,full}] [--master <url>] [--partitions <num>]
 """
 
 import argparse
@@ -12,8 +12,8 @@ import sys
 import time
 import pandas as pd
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from scripts.benchmark_engine import (
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from scripts.chapter_03.benchmark_engine import (
     configure_environment,
     resolve_paths,
     dataset_manifest_fingerprint,

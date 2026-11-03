@@ -4,11 +4,9 @@
 
 Nghiên cứu tổ chức dữ liệu theo luồng từ dữ liệu chuyến đi thô đến hai nhánh phân tích. Ở lớp đầu vào, dữ liệu HVFHV tháng 01/2026 được làm sạch và lưu thành các tệp Parquet Silver. Tập Silver này là đầu vào thống nhất cho hai thực nghiệm Spark: ND2 tổng hợp theo vùng đón khách (`PULocationID`), còn ND3 nối chuyến đi với bảng chiều ma trận nguồn–đích (OD) theo cặp (`PULocationID`, `DOLocationID`). Bảng OD cung cấp thuộc tính vùng cho từng cặp, từ đó kết quả join có thể được tổng hợp theo cặp quận nguồn–đích. Danh sách vùng đón khách nóng được tính từ phân bố số chuyến theo `PULocationID` và được dùng nhất quán trong nhánh Selective Salting của ND2 và Salting Join của ND3.
 
-> **[CHÈN HÌNH 3.1 TẠI ĐÂY — Sơ đồ kiến trúc và luồng dữ liệu]**  
-> Nên thể hiện: HVFHV thô → làm sạch → Silver Parquet → (i) ND2: groupBy vùng đón; (ii) ND3: join Silver với OD dimension → tổng hợp borough-pair; nhánh P95 hotspot đi vào các phép salting; DuckDB đối chiếu kết quả tổng hợp. Vẽ Gold phân tích không gian thành nhánh riêng từ Silver + shapefile, ghi rõ nhánh này dùng DuckDB/GeoPandas, không phải một job Spark.
+![Hình 3.1 — Sơ đồ kiến trúc và luồng dữ liệu](../../../data/benchmarks/chapter3_pipeline_architecture.png)
 
-> **[CHÈN HÌNH 3.2 TẠI ĐÂY — Topology cụm Spark dùng trong thiết kế]**  
-> Vẽ Spark Master, hai Worker và Driver như cấu hình Docker Compose. Chú thích đây là topology khai báo; chỉ mô tả lần benchmark là chạy phân tán nếu run metadata/UI xác nhận executor hoạt động trên ít nhất hai worker.
+![Hình 3.2 — Topology Spark Standalone được khai báo](../../../data/benchmarks/chapter3_spark_topology.png)
 
 Trong ND2, Spark phân phối các bản ghi theo khóa tổng hợp. Baseline thực hiện `groupBy(PULocationID)`; hai phương án salting tạo khóa trung gian `(PULocationID, salt)`, tổng hợp từng nhóm con rồi gộp lại theo `PULocationID`. Trong ND3, dữ liệu chuyến được join với OD dimension trên hai khóa vùng. Ba nhánh được so sánh là Sort-Merge Join cơ sở, Sort-Merge Join có AQE skew handling và Salting Join với số salt bằng 8. Việc materialize kết quả buộc Spark thực thi phép biến đổi trước khi thu các bảng tổng hợp nhỏ về driver.
 
@@ -52,19 +50,41 @@ Thiết kế sử dụng baseline và hai nhánh xử lý cho mỗi bài toán. 
 
 Các biến được giữ cố định trong mỗi bộ so sánh gồm tập Silver đầu vào, bảng OD ở ND3, danh sách H, số partition shuffle (mặc định 200), số salt (8), biểu thức đầu ra và quy tắc materialize. Baseline ND3 tắt AQE/broadcast để làm nhánh Sort-Merge Join đối chứng; nhánh AQE thay đổi cấu hình thích ứng được nghiên cứu; salting thay đổi khóa/replication theo thiết kế. Mỗi phương pháp có warm-up riêng trước các lượt đo. Runner full thực hiện ba lượt đo và xoay thứ tự phương pháp qua các lượt để giảm ảnh hưởng do thứ tự chạy. Kết quả từng lượt cần gắn với application ID, Spark version, master, executor/worker evidence, manifest dữ liệu, cấu hình thực tế và plan tương ứng trước khi dùng để kết luận hiệu năng.
 
-> **[CHÈN BẢNG 3.1 TẠI ĐÂY — Ma trận thực nghiệm]**  
-> Có thể dùng bảng ma trận phía trên. Nếu luận văn yêu cầu một bảng riêng về biến kiểm soát, thêm các cột: đầu vào/manifest, `spark.sql.shuffle.partitions`, AQE/broadcast, S, warm-up, số lượt đo, thứ tự chạy, kết quả đúng đắn.
+**Bảng 3.1. Ma trận thực nghiệm và các biến kiểm soát**
+
+| Bài toán/phương án | Đầu vào và khóa | Cấu hình Spark chính | Salt/AQE | Warm-up và lượt đo | Thứ tự đo | Kiểm tra đúng đắn | Chỉ số ghi nhận |
+|---|---|---|---|---|---|---|---|
+| ND2 — Baseline GroupBy | Silver 01/2026; `PULocationID` | `spark.sql.shuffle.partitions=200` mặc định; AQE tắt trong runner ND2 | Không salting | 1 warm-up; full mode 3 lượt | Xoay thứ tự giữa 3 phương án theo lượt | Count, fare trung bình, tổng miles đối chiếu DuckDB theo pickup zone | Wall time, TSR, PSR nếu có, shuffle read/write, memory/disk spill |
+| ND2 — Uniform Salting | Cùng Silver và khóa với baseline | Cùng số shuffle partition; AQE tắt | S=8; mọi pickup key được chia bucket | 1 warm-up; full mode 3 lượt | Xoay thứ tự | Như baseline | Như baseline |
+| ND2 — Selective Salting | Cùng Silver; khóa nóng H từ artifact P95 | Cùng số shuffle partition; AQE tắt | S=8; chỉ key trong H được chia, key khác salt 0 | 1 warm-up; full mode 3 lượt | Xoay thứ tự | Như baseline; kèm tập H/threshold | Như baseline |
+| ND3 — Baseline Sort-Merge Join | Silver + OD dimension; join `(PULocationID, DOLocationID)` | AQE tắt; broadcast tắt (`autoBroadcastJoinThreshold=-1`); shuffle partitions mặc định 200 | Không salting | 1 warm-up; full mode 3 lượt | Xoay thứ tự giữa 3 phương án theo lượt | Count, fare, miles, distinct pickup zone và pair coverage đối chiếu DuckDB | Wall time, TSR, PSR nếu có, shuffle read/write, memory/disk spill |
+| ND3 — Spark AQE Skew Join | Cùng Silver, OD và composite key | AQE bật; broadcast tắt; skew factor 2; threshold 16 MiB; shuffle partitions mặc định 200 | AQE skew join | 1 warm-up; full mode 3 lượt | Xoay thứ tự | Như baseline; lưu executed final plan để xác định có skew split | Như baseline; thêm AQE config và trạng thái plan |
+| ND3 — Salting Join | Cùng Silver, OD và composite key | AQE skew join tắt; broadcast tắt; shuffle partitions mặc định 200 | S=8; salt chuyến thuộc H, nhân bản hàng OD tương ứng | 1 warm-up; full mode 3 lượt | Xoay thứ tự | Như baseline; kiểm tra OD key uniqueness cùng manifest run | Như baseline; theo dõi thêm replication overhead |
+
+*Ghi chú:* cấu hình `200` là mặc định của runner và có thể đổi qua tham số `--partitions`; các run scaling dưới đây dùng 200. Full mode gồm một warm-up và ba lượt đo, xoay thứ tự phương án. ND3 dùng `MERGE` hint và lưu physical plan. Hash manifest nhận diện bộ tệp qua đường dẫn tương đối, kích thước và thời gian sửa đổi, không phải checksum nội dung.
 
 ## 3.1.5. Thiết kế thực nghiệm theo nhiều quy mô dữ liệu và giới hạn suy rộng kết quả từ quy mô nhỏ
 
-Thư mục dữ liệu hiện có các tháng HVFHV từ tháng 01 đến tháng 05/2026; script `02d_scaling_test.py` đếm số dòng và dung lượng từng tệp tháng để mô tả các quy mô dữ liệu. Đây là cơ sở để xây dựng các mức đầu vào tăng dần theo tháng, sau đó chạy cùng một bộ phương pháp và cấu hình trên từng mức. Khi triển khai ma trận mở rộng, cần xác định rõ mỗi mức là một tháng hay dữ liệu tích lũy từ tháng 01 đến tháng tương ứng; không trộn hai cách chọn quy mô trong cùng biểu đồ.
+Thực nghiệm scaling dùng năm tập dữ liệu tháng độc lập từ 01 đến 05/2026, không phải các tập tích lũy. Cần phân biệt **raw** và **Silver**: raw là tệp Parquet đầu vào trước bước làm sạch; Silver là dữ liệu đã qua tiền xử lý và mới là đầu vào của benchmark ND2/ND3. Số dòng và dung lượng raw chỉ mô tả quy mô dữ liệu nguồn, không phải kích thước đầu vào benchmark. Mỗi tháng được làm sạch bằng cùng quy tắc để tạo Silver, tính lại hotspot P95 nearest-rank từ Silver tháng đó, và tạo OD dimension tháng tương ứng cho ND3. Cùng cấu hình Spark 3.5.9 Standalone, hai Worker, 200 shuffle partitions, một warm-up và ba lượt đo mỗi phương án được giữ cố định. Mỗi tháng chạy đủ ba nhánh ND2 và ba nhánh ND3; tất cả 90 lượt đo có collector `OK`, DuckDB validation `PASS`, và worker evidence cho `spark-worker-1` cùng `spark-worker-2`.
 
-> **[CHÈN HÌNH 3.4 TẠI ĐÂY — Quy mô dữ liệu theo tháng hoặc theo mức tích lũy]**  
-> Dùng số dòng và dung lượng Parquet thực tế từ script scaling. Ghi rõ cách tạo từng mức dữ liệu, đơn vị trục và tổng số bản ghi; không dùng kích thước file thay cho số dòng mà không nêu rõ.
+![Hình 3.4 — Quy mô dữ liệu raw theo tháng](../../../data/benchmarks/figure_3_4_data_scale.png)
 
-Trong phạm vi bằng chứng hiện có, benchmark ND2/ND3 được thiết kế trên Silver tháng 01/2026. Script scaling cung cấp thống kê đầu vào thô theo tháng nhưng chưa tự động chứng minh kết quả benchmark cho nhiều quy mô. Do đó, cho đến khi chạy và lưu đủ các lượt ND2/ND3 trên từng mức cùng metadata tương ứng, kết quả hiệu năng chỉ được diễn giải cho cấu hình, dữ liệu và môi trường đã đo; không được suy rộng thành quy luật tăng tốc cho dữ liệu lớn hơn hoặc cụm khác.
+![Hình 3.5 — Thời gian benchmark ND2/ND3 theo tháng](../../../data/benchmarks/figure_3_5_benchmark_scaling.png)
+
+Hình 3.4 mô tả kích thước tệp raw và số dòng raw; Hình 3.5 trình bày thời gian trung vị theo phương án, với độ lệch chuẩn của ba lượt đo. Kết quả cho thấy trên cả năm tháng, ND2 baseline có thời gian thấp hơn hai phương án salting; selective salting giảm shuffle write so với uniform salting nhưng chi phí tổng hợp hai giai đoạn vẫn làm thời gian cao hơn baseline. Với ND3, salting có median wall time cao nhất ở cả năm tháng. AQE gần baseline nhưng có memory spill median 480–600 MiB và disk spill median khoảng 128–161 MiB; các final plan ghi nhận AQE coalescing nhưng không có skew-specific partition split. Đây là mô tả kết quả trong benchmark hiện tại, không phải khẳng định ưu thế tổng quát.
 
 Ngay cả khi có nhiều mức dữ liệu, khả năng suy rộng vẫn bị giới hạn bởi số tháng quan sát, phân bố vùng và OD của từng tháng, số worker/executor, partitioning, cache/I/O, phiên bản Spark và cấu hình tài nguyên. Một kết quả tốt trên quy mô nhỏ có thể thay đổi khi shuffle vượt bộ nhớ, khi tần suất khóa thay đổi hoặc khi chi phí replication của salting tăng. Vì vậy, báo cáo cần trình bày đầy đủ số lượt lặp, độ phân tán giữa các lượt, tài nguyên và metric còn thiếu; tách rõ kiểm tra chức năng chạy local khỏi benchmark phân tán trên Standalone. Không đưa số liệu giả định vào các ô còn thiếu; chỉ bổ sung kết luận sau khi có run artifacts cùng provenance.
 
-> **[CHÈN BẢNG 3.2 TẠI ĐÂY — Thiết kế scaling và phạm vi suy rộng]**  
-> Gợi ý cột: mức dữ liệu, tháng/phạm vi, số dòng, dung lượng, số worker/executor, số lượt đo, trạng thái artifact. Các giá trị benchmark nhiều quy mô hiện chưa được điền vì chưa có bằng chứng chạy tương ứng.
+**Bảng 3.2. Quy mô đầu vào và kết quả benchmark scaling theo tháng**
+
+| Tháng | Raw rows | Raw size (MiB) | Silver rows | Silver size (MiB) | ND2 median (Baseline / Selective / Uniform), s | ND3 median (Baseline / AQE / Salting), s | Run evidence |
+|---|---:|---:|---:|---:|---|---|---|
+| 2026-01 | 20.940.373 | 482,4 | 19.993.097 | 324,8 | 1,214 / 3,064 / 3,638 | 7,218 / 7,216 / 8,448 | 18/18 method-runs PASS; 2 workers |
+| 2026-02 | 19.875.686 | 454,7 | 19.045.927 | 308,8 | 1,411 / 2,943 / 3,377 | 7,040 / 7,502 / 8,779 | 18/18 method-runs PASS; 2 workers |
+| 2026-03 | 22.058.358 | 507,9 | 21.094.362 | 345,7 | 1,410 / 2,959 / 3,417 | 7,343 / 8,085 / 9,359 | 18/18 method-runs PASS; 2 workers |
+| 2026-04 | 20.995.953 | 486,2 | 20.038.336 | 327,1 | 1,410 / 2,775 / 3,400 | 7,078 / 7,496 / 8,862 | 18/18 method-runs PASS; 2 workers |
+| 2026-05 | 22.125.744 | 512,7 | 21.092.006 | 345,2 | 1,114 / 2,545 / 3,092 | 7,585 / 7,686 / 10,054 | 18/18 method-runs PASS; 2 workers |
+
+*Nguồn:* raw statistics từ `data/benchmarks/figure_3_4_data_scale.csv`; Silver rows/size và run metrics/provenance từ `data/benchmarks/scaling/monthly_benchmark_summary.csv`. Dung lượng được tính bằng byte chia cho 1.048.576 nên đơn vị chính xác là MiB. Raw chỉ mô tả tệp nguồn; benchmark đọc Silver. Các thời gian là median của ba lượt hợp lệ; SD, TSR, PSR, shuffle, spill, application ID và manifest có trong CSV summary/run artifacts theo tháng. Mỗi tháng chạy 9 lượt ND2 và 9 lượt ND3 (ba phương án × ba lượt đo), không tính warm-up.
+
+Các tháng này có Silver khoảng 19,0–21,1 triệu dòng, nên phạm vi kích thước chỉ thay đổi hẹp (khoảng 11% từ nhỏ nhất đến lớn nhất). Chúng cho phép kiểm tra độ ổn định trên các tháng riêng, nhưng chưa đủ để suy rộng tới tập dữ liệu lớn hơn nhiều, nhiều tháng gộp, cụm khác hoặc dữ liệu có phân bố skew khác. Mỗi điểm cũng chỉ có ba lượt đo và có thể chịu ảnh hưởng trạng thái hệ thống/I/O; cần xem SD và metrics phân tán cùng median.

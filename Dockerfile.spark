@@ -1,0 +1,9 @@
+FROM docker.io/apache/spark:3.5.9-scala2.12-java17-python3-ubuntu
+
+USER root
+COPY requirements-spark.txt /tmp/requirements-spark.txt
+RUN python3 -m pip install --no-cache-dir -r /tmp/requirements-spark.txt \
+    && python3 -c "import duckdb, numpy, pandas; print('Spark Python dependencies ready')" \
+    && rm /tmp/requirements-spark.txt
+
+WORKDIR /opt/spark/work-dir

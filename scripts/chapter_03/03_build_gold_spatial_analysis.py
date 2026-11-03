@@ -49,7 +49,7 @@ from shapely.validation import make_valid
 # ---------------------------------------------------------------------------
 # Đường dẫn mặc định (có thể ghi đè bằng biến môi trường)
 # ---------------------------------------------------------------------------
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 SILVER = Path(os.environ.get("SILVER_PATH",
                              ROOT / "data/silver/fhvhv_2026_01_clean.parquet"))

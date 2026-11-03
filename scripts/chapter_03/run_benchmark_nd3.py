@@ -2,7 +2,7 @@
 """CLI Runner for Nội dung 3: Join Skew Benchmark (NYC HVFHV 2026).
 
 Usage:
-  python3 scripts/run_benchmark_nd3.py [--mode {pilot,full}] [--master <url>] [--partitions <num>]
+  python3 scripts/chapter_03/run_benchmark_nd3.py [--mode {pilot,full}] [--master <url>] [--partitions <num>]
 """
 
 import argparse
@@ -13,8 +13,8 @@ import time
 import pandas as pd
 from pyspark.sql import functions as F
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from scripts.benchmark_engine import (
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from scripts.chapter_03.benchmark_engine import (
     configure_environment,
     resolve_paths,
     dataset_manifest_fingerprint,
@@ -36,7 +36,7 @@ def materialize_join_result(joined_df):
         F.count("*").alias("cnt"),
         F.round(F.sum("trip_miles"), 2).alias("tot_miles"),
         F.round(F.sum("base_passenger_fare"), 2).alias("tot_fare")
-    ).collect()
+    )
 
 
 def main():
@@ -83,6 +83,31 @@ def main():
     df_trips = spark.read.parquet(paths["silver_path"] + "/*.parquet")
     df_od = spark.read.parquet(paths["od_matrix_path"])
 
+    # Preflight OD uniqueness and the expected dimension-side replication cost.
+    od_rows = df_od.count()
+    duplicate_od_keys = (
+        df_od.groupBy("PULocationID", "DOLocationID").count()
+        .filter((F.col("PULocationID").isNull()) | (F.col("DOLocationID").isNull()) | (F.col("count") > 1))
+        .count()
+    )
+    if duplicate_od_keys:
+        spark.stop()
+        raise ValueError(f"OD dimension has {duplicate_od_keys} null/duplicate composite-key groups.")
+    hot_od_rows = df_od.filter(F.col("PULocationID").isin(hotspot_pu_ids)).count()
+    salted_od_rows = od_rows + hot_od_rows * 7
+    salt_array = F.when(
+        F.col("PULocationID").isin(hotspot_pu_ids),
+        F.array([F.lit(i) for i in range(8)]),
+    ).otherwise(F.array([F.lit(0)]))
+    # Materialize the exact dimension transformation used by S=8 before timing.
+    # This is an audit/preflight action, not part of a measured join iteration.
+    salted_od_rows_actual = df_od.withColumn("salt", F.explode(salt_array)).count()
+    if salted_od_rows_actual != salted_od_rows:
+        spark.stop()
+        raise AssertionError(
+            f"OD replication count mismatch: expected {salted_od_rows}, actual {salted_od_rows_actual}"
+        )
+
     # 1. Warm-up
     print(">>> Giai đoạn Warm-up...")
     collector.start_run("warmup_join_base", "Warmup Baseline SMJ")
@@ -121,7 +146,8 @@ def main():
             collector.start_run(job_group_id, f"CLI Join Iter {iteration} {method_name}")
 
             joined_df = method_func()
-            res_borough = materialize_join_result(joined_df)
+            result_df = materialize_join_result(joined_df)
+            res_borough = result_df.collect()
 
             m = collector.end_run(job_group_id)
             m["iteration"] = iteration
@@ -138,13 +164,21 @@ def main():
             m["od_dataset_path"] = paths["od_matrix_path"]
             m["trip_dataset_manifest_sha256"] = silver_manifest
             m["od_dataset_manifest_sha256"] = od_manifest
+            m["od_rows_before_salt"] = od_rows
+            m["od_hotspot_rows_replicated"] = hot_od_rows
+            m["od_rows_after_salt_expected"] = salted_od_rows
+            m["od_rows_after_salt_materialized"] = salted_od_rows_actual
+            m["od_replication_added_rows"] = hot_od_rows * 7
+            m["od_duplicate_or_null_key_groups"] = duplicate_od_keys
             m["hotspot_artifact"] = paths["hotspots_pu_path"]
             m["hotspot_pu_ids"] = json.dumps(hotspot_pu_ids)
             m["worker_evidence"] = json.dumps(
                 verify_distributed_executors(spark, require_two_workers=require_standalone)
                 if spark.sparkContext.master.startswith("spark://") else {}
             )
-            plan_text = joined_df._jdf.queryExecution().executedPlan().toString()
+            # Capture the executed plan of the action that was actually materialized.
+            # This preserves AQE's adaptive final-plan state for the join subtree.
+            plan_text = result_df._jdf.queryExecution().executedPlan().toString()
             plan_name = f"nd3_{method_name}_iter{iteration}_{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.txt"
             plan_path = os.path.join(plans_dir, plan_name)
             with open(plan_path, "w", encoding="utf-8") as plan_file:
@@ -160,9 +194,11 @@ def main():
 
             read_mb = m.get("shuffle_read_bytes")
             spill_mb = m.get("memory_bytes_spilled")
+            disk_spill_mb = m.get("disk_bytes_spilled")
             read_text = f"{read_mb / (1024 * 1024):.2f} MB" if read_mb is not None else "unavailable"
             spill_text = f"{spill_mb / (1024 * 1024):.2f} MB" if spill_mb is not None else "unavailable"
-            print(f"     Thời gian: {m['wall_clock_duration_s']:.3f}s | TSR: {m['task_skew_ratio_max']} | Shuffle Read: {read_text} | Spill Mem: {spill_text}")
+            disk_spill_text = f"{disk_spill_mb / (1024 * 1024):.2f} MB" if disk_spill_mb is not None else "unavailable"
+            print(f"     Thời gian: {m['wall_clock_duration_s']:.3f}s | TSR: {m['task_skew_ratio_max']} | Shuffle Read: {read_text} | Spill Mem: {spill_text} | Spill Disk: {disk_spill_text}")
 
     # 3. Ground Truth Verification
     print("\n>>> Kiểm chứng độc lập DuckDB Ground Truth...")
@@ -201,6 +237,7 @@ def main():
         psrs = group["partition_skew_ratio_max"].dropna()
         shuffles = group["shuffle_read_bytes"] / (1024 * 1024)
         spills = group["memory_bytes_spilled"] / (1024 * 1024)
+        disk_spills = group["disk_bytes_spilled"] / (1024 * 1024)
         summary_join_rows.append({
             "Phương án": m_name,
             "Số lượt đo": len(durations),
@@ -211,6 +248,12 @@ def main():
             "PSR Median": round(psrs.median(), 2) if not psrs.empty else "N/A",
             "Shuffle Read Median (MB)": round(shuffles.median(), 2),
             "Memory Spill Median (MB)": round(spills.median(), 2),
+            "Disk Spill Median (MB)": round(disk_spills.median(), 2) if disk_spills.notna().any() else None,
+            "OD Rows Before Salt": od_rows,
+            "OD Hotspot Rows Replicated": hot_od_rows,
+            "OD Rows After Salt Expected": salted_od_rows,
+            "OD Rows After Salt Materialized": salted_od_rows_actual,
+            "OD Replication Added Rows": hot_od_rows * 7,
         })
     df_join_summary = pd.DataFrame(summary_join_rows)
     join_summary_csv = os.path.join(paths["benchmarks_dir"], f"benchmark_nd3_join_summary_{tier_suffix}.csv")

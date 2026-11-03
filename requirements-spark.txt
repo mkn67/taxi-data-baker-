@@ -1,0 +1,4 @@
+# Minimal Python stack shared by Spark 3.5.9 driver and executors (Python 3.10)
+numpy==1.26.4
+pandas==2.2.3
+duckdb==1.5.6

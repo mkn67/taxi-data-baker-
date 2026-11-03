@@ -7,7 +7,7 @@ SparkSession duoc tao nen khong dat spark.driver.memory trong code duoc):
       --master spark://spark-master:7077 \\
       --driver-memory 1500m \\
       --conf spark.executor.memory=1800m \\
-      /opt/bitnami/spark/scripts/02_preprocess_and_audit.py
+      /opt/spark/scripts/chapter_02/02_preprocess_and_audit.py
 
 Sau khi chay, kiem tra bo nho thuc te cua driver/executor trong Spark UI.
 """
@@ -18,10 +18,10 @@ import sys
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
-INPUT_PATH = "/opt/bitnami/spark/data/raw/fhvhv_tripdata_2026-01.parquet"
-SILVER_PATH = "/opt/bitnami/spark/data/silver/fhvhv_2026_01_clean.parquet"
-HOTSPOT_PU_PATH = "/opt/bitnami/spark/data/silver/hotspots_p95_pu_2026_01"
-HOTSPOT_DO_PATH = "/opt/bitnami/spark/data/silver/hotspots_p95_do_2026_01"
+INPUT_PATH = os.environ.get("INPUT_PATH", "/opt/bitnami/spark/data/raw/fhvhv_tripdata_2026-01.parquet")
+SILVER_PATH = os.environ.get("SILVER_PATH", "/opt/bitnami/spark/data/silver/fhvhv_2026_01_clean.parquet")
+HOTSPOT_PU_PATH = os.environ.get("HOTSPOT_PU_PATH", "/opt/bitnami/spark/data/silver/hotspots_p95_pu_2026_01")
+HOTSPOT_DO_PATH = os.environ.get("HOTSPOT_DO_PATH", "/opt/bitnami/spark/data/silver/hotspots_p95_do_2026_01")
 
 
 def dir_size_mb(path):

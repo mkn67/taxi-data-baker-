@@ -81,12 +81,12 @@ def resolve_paths() -> Dict[str, str]:
 
     base_dir = os.path.abspath(base_dir)
     base_data = os.path.join(base_dir, "data")
-    silver_path = os.path.join(base_data, "silver/fhvhv_2026_01_clean.parquet")
-    od_matrix_path = os.path.join(base_data, "silver/od_matrix_2026_01.parquet")
-    hotspots_pu_path = os.path.join(base_data, "silver/hotspots_p95_pu_2026_01")
+    silver_path = os.environ.get("SILVER_PATH", os.path.join(base_data, "silver/fhvhv_2026_01_clean.parquet"))
+    od_matrix_path = os.environ.get("OD_MATRIX_PATH", os.path.join(base_data, "silver/od_matrix_2026_01.parquet"))
+    hotspots_pu_path = os.environ.get("HOTSPOTS_PU_PATH", os.path.join(base_data, "silver/hotspots_p95_pu_2026_01"))
     hotspots_do_path = os.path.join(base_data, "silver/hotspots_p95_do_2026_01")
     zone_lookup_path = os.path.join(base_data, "raw/taxi+_zone_lookup.csv")
-    benchmarks_dir = os.path.join(base_data, "benchmarks")
+    benchmarks_dir = os.environ.get("BENCHMARKS_DIR", os.path.join(base_data, "benchmarks"))
     plans_dir = os.path.join(benchmarks_dir, "nd3_plans")
     nd2_plans_dir = os.path.join(benchmarks_dir, "nd2_plans")
     # Compose mounts the shared host directory at this path in every Spark
@@ -254,6 +254,11 @@ def create_benchmark_spark_session(
                 f"Standalone benchmark expects Spark {expected_version} from docker-compose.yml, "
                 f"but the driver reports Spark {spark.version}. Use a matching PySpark/Spark distribution."
             )
+        # Standalone may not allocate executors until the first job is submitted.
+        # Run a tiny unmeasured probe before asking the REST API for worker evidence.
+        probe_result = spark.sparkContext.parallelize(range(4), 4).map(lambda value: value + 1).sum()
+        if probe_result != 10:
+            raise RuntimeError(f"Standalone executor probe returned an unexpected result: {probe_result}")
         evidence = verify_distributed_executors(spark, require_two_workers=True)
         print(f">>> Active worker executor evidence: {evidence}")
     return spark
@@ -272,7 +277,9 @@ def verify_spark_master_connection(spark: SparkSession, expected_master_prefix: 
 
 def verify_distributed_executors(spark: SparkSession, require_two_workers: bool = True) -> Dict[str, Any]:
     """Check live Spark executor evidence through the driver's Spark REST API."""
-    ui_url = (spark.sparkContext.uiWebUrl or "").rstrip("/")
+    # A host-side driver may advertise a container-only hostname. Allow the
+    # operator to point the REST collector at the host-published Spark UI.
+    ui_url = (os.environ.get("SPARK_UI_URL") or spark.sparkContext.uiWebUrl or "").rstrip("/")
     app_id = spark.sparkContext.applicationId
     if not ui_url:
         raise RuntimeError("Spark UI URL is unavailable; cannot verify executor distribution.")
@@ -742,8 +749,8 @@ def join_baseline_smj(spark: SparkSession, df_trips: DataFrame, df_od: DataFrame
     spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "false")
     spark.conf.set("spark.sql.autoBroadcastJoinThreshold", "-1")
 
-    return df_trips.join(
-        df_od,
+    return df_trips.hint("merge").join(
+        df_od.hint("merge"),
         ["PULocationID", "DOLocationID"],
         "inner",
     )
@@ -766,8 +773,8 @@ def join_aqe_skew(
     )
     spark.conf.set("spark.sql.autoBroadcastJoinThreshold", "-1")
 
-    return df_trips.join(
-        df_od,
+    return df_trips.hint("merge").join(
+        df_od.hint("merge"),
         ["PULocationID", "DOLocationID"],
         "inner",
     )
@@ -806,8 +813,8 @@ def join_salting(
     df_od_salted = df_od.withColumn("salt", F.explode(salt_array))
 
     # Join on composite key (PULocationID, DOLocationID, salt)
-    df_joined = df_trips_salted.join(
-        df_od_salted,
+    df_joined = df_trips_salted.hint("merge").join(
+        df_od_salted.hint("merge"),
         ["PULocationID", "DOLocationID", "salt"],
         "inner",
     ).drop("salt")

@@ -1,13 +1,55 @@
-# README --- Chạy Spark Cluster + Airflow trên Fedora (Podman)
+# Taxi Data Baker — Pipeline dữ liệu và benchmark Spark
 
-Tài liệu ghi lại cách khởi động, kiểm tra và chạy smoke test cho project
-`taxi-data-baker`.
+Project xây dựng pipeline xử lý dữ liệu chuyến xe HVFHV của New York, đánh giá một số cách xử lý lệch tải trên Apache Spark, và tạo dữ liệu không gian mô tả điểm trả khách ở Manhattan. README này tóm tắt phạm vi ba chương đầu, trạng thái artifact và cách chạy các thành phần chính.
 
-> **Trạng thái đã xác nhận:** Spark 3.5.9 Standalone Master + 2
-> Workers + Driver chạy được; bài test `pi.py` đã phân phối task tới cả
-> `spark-worker-1` và `spark-worker-2`, hoàn thành với exit code 0.\
-> **Lưu ý:** Đây mới là kiểm tra hạ tầng, chưa chứng minh benchmark dữ
-> liệu taxi chạy đúng hoặc kết quả benchmark đã hợp lệ.
+## Tổng quan đề tài
+
+Đề tài tập trung vào hai nhóm công việc:
+
+1. **Benchmark lệch tải trên Spark:** ND2 tổng hợp chuyến theo vùng đón (`PULocationID`); ND3 nối dữ liệu chuyến với OD dimension theo cặp vùng đón–trả. Các phương án được so sánh gồm Baseline, Selective Salting, Uniform Salting cho ND2, và Baseline Sort-Merge Join, Spark AQE, Salting Join cho ND3.
+2. **Phân tích mật độ trả khách:** tổng hợp điểm trả theo Taxi Zone và khung giờ Ngày/Đêm, tính chuyến/km² từ hình học vùng và xuất Gold cùng bản đồ Kepler.gl.
+
+Pipeline tiền xử lý tạo Silver Parquet từ dữ liệu Raw. Spark thực hiện các benchmark phân tán; DuckDB đối soát đầu ra độc lập; Spark Event Logs và REST API cung cấp task/stage metrics và executor evidence. Dữ liệu chuyến cấp dòng không được gom về driver để tính kết quả benchmark; chỉ các bảng tổng hợp nhỏ được dùng cho đối chiếu.
+
+Airflow service có trong Compose nhưng thư mục `dags/` hiện chưa có DAG; các pipeline và benchmark hiện được gọi bằng scripts/CLI.
+
+### Phạm vi dữ liệu và kết quả
+
+- Benchmark chính thức dùng Spark 3.5.9 Standalone trên Podman Compose, gồm một Master và hai Worker. Mỗi phương án có một warm-up và ba lượt đo; cấu hình chính dùng 200 shuffle partitions.
+- Benchmark ND2/ND3 tháng 01–05/2026 chạy trên **năm tập Silver tháng độc lập**, không phải dữ liệu tích lũy. Quy mô Silver trong các tháng khoảng 19,0–21,1 triệu dòng, nên đây là phép so sánh giữa các input tháng gần kích thước, không phải bằng chứng scaling trên dải quy mô lớn.
+- Run CSV chính thức hiện có 90/90 lượt ND2/ND3 với collector `OK` và DuckDB validation `PASS`: mỗi benchmark có 3 phương án × 3 lượt × 5 tháng = 45 lượt, tổng hai benchmark là 90. Xem run-level CSV và summary trong `data/benchmarks/` để đối chiếu theo tháng/phương pháp.
+- Kết quả ND2 cho thấy salting có thể giảm Shuffle Write so với Uniform Salting nhưng các phương án salting mất thêm thời gian so với baseline trong workload đã đo. Với ND3, AQE giảm TSR trong các run nhưng final plan không cho thấy skew-specific partition split; các run AQE có spill. Riêng benchmark tháng 01, Salting Join materialize OD dimension từ 58.747 lên 83.646 hàng, tăng 24.899 hàng.
+- Spatial Gold dùng Silver tháng 01/2026. Toàn bộ 263 zone được phân loại thành 41 zone phía Nam, 23 phía Bắc, 5 vùng mơ hồ và 194 ngoài Manhattan. Đây là nhóm phân tích theo đường 60th Street xấp xỉ, không phải lớp phân loại CRZ pháp lý và không chứng minh quan hệ nhân quả.
+
+Artifact kết quả chính:
+
+- Summary/run/audit benchmark: `data/benchmarks/` và `data/benchmarks/scaling/`.
+- Spatial Gold: `data/gold/dropoff_density_by_zone_period.parquet` và `.csv`.
+- Kepler.gl: `data/gold/dropoff_density_by_zone_period.gl`.
+- Hình density: `data/benchmarks/figure_3_1_dropoff_density.png`.
+
+Các kết luận benchmark chỉ áp dụng cho workload, dữ liệu, cấu hình và môi trường đã đo. Project chưa có mô hình LightGBM, SparkListener tùy biến hay collector đo mức sử dụng CPU/RAM cgroup theo từng run; không xem các mục này là kết quả đã triển khai.
+
+### Tình trạng nội dung theo chương
+
+| Chương | Nội dung | Trạng thái trong project |
+|---|---|---|
+| 1 | Tổng quan đề tài, cơ sở khoa học và khảo sát dữ liệu | Có chỉ mục artifact; bản thảo hiện nằm trong DOCX tổng hợp, chưa được lưu trong repository. |
+| 2 | Tiền xử lý, kiểm định dữ liệu, Silver, hotspot và phạm vi benchmark tháng 01 | Có scripts/data/audit; bản thảo hiện nằm trong DOCX tổng hợp. Pilot là chế độ chạy thử trên Silver tháng 01, không phải tập 7 ngày. |
+| 3 | Pipeline, ND2/ND3, phương pháp benchmark và spatial methodology | Có bản thảo Markdown, notebooks, run artifacts, Gold và Kepler artifact. |
+| 4 | Kết quả thực nghiệm và phân tích đánh đổi | Có [kế hoạch viết](chapters/04_results_tradeoffs/plan_chuong_4.md); chưa phải chương hoàn chỉnh. |
+| 5 | Kết luận và hướng phát triển | Có README chỉ mục; chưa phải chương hoàn chỉnh. |
+
+## Tài liệu và mã nguồn theo chương
+
+Thư mục `chapters/` chia tài liệu theo Chương 1–5. Mã và notebook được xếp
+trong `scripts/chapter_02/`, `scripts/chapter_03/` và `notebooks/chapter_03/`;
+dữ liệu vẫn giữ nguyên trong `data/`. Compose mount nguyên thư mục `scripts/`
+và `notebooks/`, nên các lệnh chạy dùng đường dẫn lồng theo chương. Bắt đầu từ
+[chapters/README.md](chapters/README.md), [scripts/README.md](scripts/README.md)
+và [notebooks/README.md](notebooks/README.md).
+
+> **Trạng thái đã xác nhận:** Spark 3.5.9 Standalone Master + 2 Workers + Driver đã chạy được. Ngoài smoke test hạ tầng, các benchmark ND2/ND3 official cũng có worker evidence cho cả hai Worker và DuckDB validation `PASS`. Các kết luận cụ thể phải được truy về run CSV/audit, không suy từ smoke test.
 
 ## 1. Thông tin môi trường
 
@@ -26,7 +68,7 @@ Tài liệu ghi lại cách khởi động, kiểm tra và chạy smoke test cho
 Thư mục project hiện dùng:
 
 ``` bash
-cd ~/SEM5/Bigdata/taxi-data-baker
+cd ~/SEM5/Bigdata/taxi-data-baker-
 ```
 
 Nếu chuyển project sang vị trí khác, thay đường dẫn trên bằng đường dẫn
@@ -37,7 +79,7 @@ thật.
 Chạy các lệnh tại thư mục có file `docker-compose.yml`.
 
 ``` bash
-cd ~/SEM5/Bigdata/taxi-data-baker
+cd ~/SEM5/Bigdata/taxi-data-baker-
 podman-compose up -d
 ```
 
@@ -180,9 +222,10 @@ và backup dữ liệu cần giữ.
 3.  Kiểm tra dependencies và các mount dữ liệu/script.
 4.  Xác nhận event logging được bật và thư mục `logs/spark-events` có
     thể ghi.
-5.  Chạy benchmark-engine smoke test với dữ liệu nhỏ.
-6.  Chạy aggregation benchmark: Baseline, Static Salting và
-    Heuristic/Selective Salting.
+5.  Chạy pilot ND2/ND3 trên Silver tháng 01 để kiểm tra chức năng; pilot
+    chỉ giảm số lượt đo, không dùng tập dữ liệu nhỏ hơn.
+6.  Chạy aggregation benchmark: Baseline GroupBy, Uniform Salting S=8
+    và Selective Salting S=8.
 7.  Chạy join benchmark: Baseline Sort-Merge Join, AQE và Salting Join.
 8.  Kiểm tra tính đúng đắn: đối chiếu row count và tổng các trường
     tiền/fare với Baseline (ví dụ bằng DuckDB theo pipeline của
@@ -240,7 +283,7 @@ README này cho khớp.
 
 ## Checklist trước khi bắt đầu phiên làm việc
 
--   [ ] Đang ở đúng thư mục `taxi-data-baker`
+-   [ ] Đang ở đúng thư mục `taxi-data-baker-`
 -   [ ] `podman-compose up -d` thành công
 -   [ ] `spark-master` healthy
 -   [ ] Cả hai Workers đã đăng ký trong Master UI
@@ -249,3 +292,61 @@ README này cho khớp.
 -   [ ] Dependencies cần thiết đã được xác nhận
 -   [ ] Event logging và quyền ghi log đã được kiểm tra
 -   [ ] Chỉ bắt đầu benchmark chính thức sau khi test correctness
+
+## 9. Cấu trúc chương và cách chạy pipeline
+
+Các hướng dẫn chi tiết theo thư mục:
+
+- [Chỉ mục tài liệu Chương 1–5](chapters/README.md)
+- [Scripts và lệnh chạy](scripts/README.md)
+- [Notebook](notebooks/README.md)
+- [Chương 3: nội dung, nguồn hình và artifact](chapters/03_pipeline_skew_benchmarks/README.md)
+
+### Tiền xử lý dữ liệu tháng 01/2026
+
+Chạy từ project root trong môi trường đã cài dependencies Spark:
+
+```bash
+python scripts/chapter_02/02_preprocess_and_audit.py
+```
+
+Script đọc Raw tháng 01, áp dụng bộ lọc, ghi Silver và tạo hotspot P95. Trước khi chạy, kiểm tra đường dẫn đầu vào/đầu ra và cấu hình Spark trong script hoặc biến môi trường mà script hỗ trợ. Không chạy lại trên thư mục kết quả cần giữ nếu chưa sao lưu.
+
+### Benchmark ND2 và ND3
+
+Chạy thử chức năng (một lượt đo):
+
+```bash
+python scripts/chapter_03/run_benchmark_nd2.py --mode pilot
+python scripts/chapter_03/run_benchmark_nd3.py --mode pilot
+```
+
+Chạy benchmark đầy đủ trên Spark Standalone (một warm-up và ba lượt đo):
+
+```bash
+python scripts/chapter_03/run_benchmark_nd2.py --mode full --master spark://spark-master:7077
+python scripts/chapter_03/run_benchmark_nd3.py --mode full --master spark://spark-master:7077
+```
+
+Trong container Driver, dùng các đường dẫn `/opt/spark/scripts/...` và đảm bảo Silver, hotspot/OD dimension được mount tại `/opt/spark/data`. Pilot/full là chế độ số lượt chạy, không phải hai kích thước dữ liệu. Chạy lệnh từ container chỉ khi dependencies, volume mount và Spark network đã được kiểm tra.
+
+### Benchmark qua các tháng độc lập
+
+Các benchmark tháng 02–05 được điều phối riêng; tháng 01 là benchmark official chính. Mỗi tháng là một input độc lập, không gộp thành tập tích lũy và không gọi đây là scaling trên dải quy mô lớn:
+
+```bash
+bash scripts/chapter_03/run_monthly_scaling_benchmarks.sh
+```
+
+Đọc README của Chương 3 và kiểm tra tham số/script trước khi chạy vì bước này tạo dữ liệu và benchmark cho nhiều tháng, tốn thời gian và tài nguyên. Chỉ chạy lại khi cần tái tạo artifact; các tháng là input độc lập, không diễn giải như một tập dữ liệu tích lũy hay mức tăng quy mô lớn.
+
+### Tạo hình Chương 3 và spatial Gold
+
+```bash
+python scripts/chapter_03/plot_chapter3_architecture.py
+python scripts/chapter_03/plot_figure_3_3_pickup_p95.py
+python scripts/chapter_03/03_build_gold_spatial_analysis.py
+python scripts/chapter_03/build_kepler_spatial_artifact.py
+```
+
+Kiểm tra biến môi trường/đường dẫn trong từng script trước khi chạy. Spatial builder ghi Gold và audit; Kepler builder tạo file `.gl` từ Gold hiện có.

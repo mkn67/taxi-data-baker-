@@ -1,6 +1,6 @@
 """Script to build and validate both research notebooks:
-- notebooks/02_benchmark_aggregation_salting.ipynb
-- notebooks/03_benchmark_join_skew.ipynb
+- notebooks/chapter_03/02_benchmark_aggregation_salting.ipynb
+- notebooks/chapter_03/03_benchmark_join_skew.ipynb
 """
 
 import os
@@ -75,7 +75,7 @@ from pyspark.sql import functions as F
 
 # Bổ sung thư mục gốc vào path để import module hỗ trợ
 sys.path.insert(0, os.path.abspath(".."))
-from scripts.benchmark_engine import (
+from scripts.chapter_03.benchmark_engine import (
     configure_environment,
     resolve_paths,
     dataset_manifest_fingerprint,
@@ -547,7 +547,7 @@ from pyspark.sql import functions as F
 
 # Bổ sung thư mục gốc vào path để import module hỗ trợ
 sys.path.insert(0, os.path.abspath(".."))
-from scripts.benchmark_engine import (
+from scripts.chapter_03.benchmark_engine import (
     configure_environment,
     resolve_paths,
     dataset_manifest_fingerprint,
@@ -984,17 +984,17 @@ print(f">>> Đã lưu biểu đồ so sánh Join Skew tại: {join_plot_path}")
 
 
 def main():
-    os.makedirs("notebooks", exist_ok=True)
+    os.makedirs("notebooks/chapter_03", exist_ok=True)
 
     nb2 = create_aggregation_notebook()
-    nb2_path = "notebooks/02_benchmark_aggregation_salting.ipynb"
+    nb2_path = "notebooks/chapter_03/02_benchmark_aggregation_salting.ipynb"
     with open(nb2_path, "w", encoding="utf-8") as f:
         nbformat.write(nb2, f)
     nbformat.validate(nb2)
     print(f"Successfully generated and validated {nb2_path} (cells: {len(nb2.cells)})")
 
     nb3 = create_join_notebook()
-    nb3_path = "notebooks/03_benchmark_join_skew.ipynb"
+    nb3_path = "notebooks/chapter_03/03_benchmark_join_skew.ipynb"
     with open(nb3_path, "w", encoding="utf-8") as f:
         nbformat.write(nb3, f)
     nbformat.validate(nb3)

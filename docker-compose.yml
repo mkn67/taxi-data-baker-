@@ -1,7 +1,10 @@
 version: "3.8"
 
 x-spark-image: &spark-image
-  image: docker.io/apache/spark:3.5.9-scala2.12-java17-python3-ubuntu
+  image: localhost/taxi-spark:3.5.9-py310
+  build:
+    context: .
+    dockerfile: Dockerfile.spark
   user: "0:0"
   working_dir: /opt/spark/work-dir
   environment: &spark-common-env
