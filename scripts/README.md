@@ -1,12 +1,13 @@
 # Scripts theo chương
 
-Chạy lệnh từ project root. Thư mục `chapter_01`–`chapter_03` khớp trực tiếp với các chương; dữ liệu đầu vào/đầu ra vẫn dùng chung trong `data/`.
+Chạy lệnh từ project root. Thư mục `chapter_01`–`chapter_04` khớp trực tiếp với các chương; dữ liệu đầu vào/đầu ra vẫn dùng chung trong `data/`.
 
 | Thư mục | Vai trò | Bắt đầu từ |
 |---|---|---|
 | `chapter_01/` | Khảo sát sơ bộ dữ liệu cho Chương 1 | `README.md` (ghi chú script khảo sát cũ) |
 | `chapter_02/` | Làm sạch, Silver, audit, boundary và hình Chương 2 | `02_preprocess_and_audit.py` |
 | `chapter_03/` | ND2/ND3, benchmark nhiều tháng độc lập, OD, spatial Gold/Kepler và hình Chương 3 | `run_benchmark_nd2.py`, `run_benchmark_nd3.py` |
+| `chapter_04/` | Tính lại bảng kết quả/correctness và vẽ hình benchmark tháng 01 cho Chương 4 | `build_chapter4_evidence.py`, `build_chapter4_figures.py` |
 
 ## Chương 1 — Khảo sát ban đầu
 
@@ -51,3 +52,14 @@ python scripts/chapter_03/run_benchmark_nd3.py --mode full --master spark://spar
 ## Notebook
 
 Notebook nằm trong `notebooks/chapter_03/`. Chúng dùng để đọc, chạy và kiểm tra luồng benchmark; script runner là đường chạy tái lập chính.
+
+## Chương 4 — Tổng hợp kết quả
+
+`chapter_04/build_chapter4_evidence.py` tính lại summary ND2/ND3 tháng 01, DuckDB audit và số lượt hợp lệ tháng 01–05 từ CSV official đã lưu. `chapter_04/build_chapter4_figures.py` tạo Hình 4.2 và Hình 4.4 với median và min–max. Hai script đọc artifacts đã có, không khởi chạy Spark.
+
+```bash
+python scripts/chapter_04/build_chapter4_evidence.py
+python scripts/chapter_04/build_chapter4_figures.py
+```
+
+Các bảng được ghi vào `data/benchmarks/chapter4_evidence/`. Bản thảo mục 4.1–4.4 nằm tại `chapters/04_results_tradeoffs/sections_4_1_to_4_4.md`.

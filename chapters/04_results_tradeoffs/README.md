@@ -2,6 +2,10 @@
 
 [**Kế hoạch hoàn thiện Chương 4 theo mục 4.1–4.8**](plan_chuong_4.md)
 
+[**Bản thảo các mục 4.1–4.4 từ official artifacts**](sections_4_1_to_4_4.md)
+
+Tính lại các bảng ND2/ND3, DuckDB audit và trạng thái run bằng `python scripts/chapter_04/build_chapter4_evidence.py`; tạo Hình 4.2 và Hình 4.4 bằng `python scripts/chapter_04/build_chapter4_figures.py`.
+
 Kế hoạch phân biệt artifacts đã có với phần cần viết/đối chiếu. Các điều chỉnh chính: mục 4.5 trình bày tính ổn định qua năm tháng độc lập, không gọi là scaling; ML chuyển thành hướng phát triển Chương 5; mục spatial/trade-offs/tổng kết lần lượt là 4.6–4.8. Cgroups hiện mới có giới hạn cấu hình, chưa có số liệu usage runtime; không có SparkListener tùy biến.
 
 ## Nguồn kết quả

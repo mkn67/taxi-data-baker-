@@ -32,27 +32,27 @@ Luồng chính: **Raw Parquet → tiền xử lý → Silver + hotspot P95 + OD 
 
 ## Kết quả chính
 
-Các số dưới đây là median của **3 lượt đo chính thức trên Silver tháng 01/2026**, Spark 3.5.9, hai Worker. Đây là thống kê mô tả với ba lượt đo, không phải kiểm định ý nghĩa thống kê hay khẳng định tổng quát cho mọi cụm/workload.
+Các số dưới đây là median của **3 lượt đo official Standalone chạy ngày 03/11/2026 trên Silver tháng 01/2026**, Spark 3.5.9, hai Worker. Đây là thống kê mô tả với ba lượt đo, không phải kiểm định ý nghĩa thống kê hay khẳng định tổng quát cho mọi cụm/workload. Dung lượng dùng MiB (1 MiB = 1.048.576 byte).
 
 ### ND2 — Aggregation
 
 | Phương án | Thời gian median | Shuffle Write median |
 |---|---:|---:|
-| Baseline GroupBy | 1,214 s | 0,06 MB |
-| Selective Salting S=8 | 3,064 s | 0,10 MB |
-| Uniform Salting S=8 | 3,638 s | 0,45 MB |
+| Baseline GroupBy | 2,022 s | 0,057 MiB |
+| Selective Salting S=8 | 4,400 s | 0,103 MiB |
+| Uniform Salting S=8 | 4,859 s | 0,451 MiB |
 
-Selective Salting ghi ít Shuffle Write hơn Uniform Salting trong run này, nhưng cả hai phương án salting chạy lâu hơn Baseline.
+Selective Salting ghi ít Shuffle Write hơn Uniform Salting khoảng 77% và nhanh hơn khoảng 9%, nhưng vẫn chậm hơn Baseline khoảng 2,2 lần. TSR/PSR ở stage được chọn thấp hơn Baseline; điều đó không chuyển thành wall-time tốt hơn.
 
 ### ND3 — Shuffle Join
 
 | Phương án | Thời gian median | TSR median | Shuffle Read median | Memory / Disk Spill median |
 |---|---:|---:|---:|---:|
-| Baseline Sort-Merge | 7,218 s | 3,19 | 295,72 MB | 0 / 0 MB |
-| Spark AQE | 7,216 s | 1,03 | 295,22 MB | 480 / 128,36 MB |
-| Salting Join S=8 | 8,448 s | 2,92 | 326,47 MB | 0 / 0 MB |
+| Baseline Sort-Merge | 8,165 s | 3,95 | 295,72 MiB | 0 / 0 MiB |
+| Spark AQE | 7,157 s | 1,04 | 295,22 MiB | 480 / 128,37 MiB |
+| Salting Join S=8 | 13,858 s | 3,84 | 326,47 MiB | 0 / 0 MiB |
 
-Final plan của các run AQE không cho thấy skew-specific partition split. Salting Join tăng OD dimension tháng 01 từ **58.747 lên 83.646 hàng** (**+24.899 hàng**), không phải mức tăng byte.
+AQE có median ngắn hơn Baseline khoảng 12% trong ba lượt đo nhưng có spill; final plan không cho thấy skew-specific partition split. Salting Join tăng OD dimension tháng 01 từ **58.747 lên 83.646 hàng** (**+24.899 hàng**), không phải mức tăng byte.
 
 ### Kiểm tra qua các tháng
 

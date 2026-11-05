@@ -13,15 +13,15 @@ Chương 4 trình bày **kết quả đo được và phân tích đánh đổi*
 
 ## Kế hoạch theo mục lục
 
-**Điều chỉnh tiêu đề trước khi soạn bản chương:** 4.1.1 ghi Podman Compose; 4.1.2 dùng “Khai báo và áp giới hạn tài nguyên bằng cgroups”; 4.1.3 đổi “Listener” thành “Spark Event Logs và REST API”. 4.5 là “Đánh giá tính ổn định của kết quả qua năm tháng dữ liệu độc lập”; đổi tên cả các tiểu mục theo bảng dưới đây. Bỏ mục ML khỏi Chương 4 và chuyển spatial thành 4.6, trade-offs thành 4.7, tổng kết thành 4.8. Đặt 4.6.3 là “Đối chiếu với nghiên cứu của Zhang, Sang & Wu” và bỏ năm ở tiêu đề; ghi SSRN 5549128/preprint trong nội dung. Mục 4.5.1 dẫn lại định nghĩa Pilot ở Chương 2/3, tránh lặp phương pháp.
+**Điều chỉnh tiêu đề trước khi soạn bản chương:** 4.1.1 ghi Podman Compose; 4.1.2 dùng “Cấu hình giới hạn tài nguyên và các biến kiểm soát thực nghiệm”; 4.1.3 đổi “Listener” thành “Spark Event Logs và REST API”. 4.5 là “Đánh giá tính ổn định của kết quả qua năm tháng dữ liệu độc lập”; đổi tên cả các tiểu mục theo bảng dưới đây. Bỏ mục ML khỏi Chương 4 và chuyển spatial thành 4.6, trade-offs thành 4.7, tổng kết thành 4.8. Đặt 4.6.3 là “Đối chiếu với nghiên cứu của Zhang, Sang & Wu” và bỏ năm ở tiêu đề; ghi SSRN 5549128/preprint trong nội dung. Mục 4.5.1 dẫn lại định nghĩa Pilot ở Chương 2/3, tránh lặp phương pháp.
 
 ### 4.1. Thiết lập môi trường và quy trình đo lường thực nghiệm
 
 | Mục | Nội dung cần viết | Bằng chứng hiện có | Việc cần hoàn tất |
 |---|---|---|---|
 | **4.1.1** | Cụm Spark Standalone chạy bằng Podman Compose; vai trò Master, hai Worker và Driver; tài nguyên được cấp cho từng container. Official runs dùng Spark 3.5.9. | README/benchmark artifact audit ghi Podman; `docker-compose.yml`; cột `spark_version` và `worker_evidence` trong CSV official. Cả 90 dòng run-level ND2/ND3 đều ghi Spark 3.5.9 và hai worker. | Ghi Podman Compose và Spark 3.5.9 cho cụm benchmark chính thức. Notebook local-functional Spark 3.5.6 là bằng chứng chạy local riêng, không nhầm với run Standalone. Phân biệt tài nguyên container với Spark worker/executor. |
-| **4.1.2** | **Khai báo và áp giới hạn tài nguyên bằng cgroups**; phân biệt hạn mức Docker/Podman với heap Spark. | Compose khai báo Master 1 CPU/1 GiB; mỗi Worker 2 CPU, Spark worker memory 2 GiB, giới hạn container 2,5 GiB; Driver 2 CPU/2,5 GiB. | Chưa có phép đo usage runtime qua `cpu.stat`, `memory.current/peak` hay `memory.events`; không gọi đây là số liệu sử dụng và không kết luận mức dùng thực tế. Ghi đúng runtime thực sự dùng trong run official theo metadata/nhật ký, không suy từ tên Compose. |
-| **4.1.3** | Quy trình warm-up, ba lượt đo xoay thứ tự; thu thời gian, task/stage metrics, execution plan và executor evidence qua Spark Event Logs và REST API. | Run CSV, event logs, Spark REST API task/stage metrics, final plans và metadata. | Đổi tiêu đề thành **“Quy trình Warm-up, đo lường lặp lại và thu thập chỉ số qua Spark Event Logs và REST API”**. Project chưa có SparkListener tùy biến; chỉ nêu Listener nếu bổ sung và đối chiếu được. |
+| **4.1.2** | **Cấu hình giới hạn tài nguyên và các biến kiểm soát thực nghiệm**; phân biệt hạn mức Compose với heap/executor Spark. | Compose khai báo Master 1 CPU/1 GiB; mỗi Worker 2 CPU, Spark worker memory 2 GiB, giới hạn container 2,5 GiB; Driver 2 CPU/2,5 GiB. | Chưa có phép đo usage runtime qua `cpu.stat`, `memory.current/peak` hay `memory.events`; không gọi đây là số liệu sử dụng và không kết luận mức dùng thực tế. Ghi đúng runtime thực sự dùng trong run official theo metadata/nhật ký, không suy từ tên Compose. |
+| **4.1.3** | Quy trình warm-up, ba lượt đo xoay thứ tự; thu thời gian, task/stage metrics, execution plan và executor evidence qua Spark Event Logs và REST API. | Run metadata, Event Logs, Spark REST API, final plans và worker evidence. | Bản thảo dùng tiêu đề **“Quy trình warm-up, đo lặp và thu thập số liệu”**; dẫn chiếu định nghĩa TSR/PSR về Chương 3. Project chưa có SparkListener tùy biến. |
 
 **Sản phẩm:** Bảng 4.1 cấu hình cụm/tài nguyên; Hình 4.1 topology; sơ đồ hoặc bảng quy trình đo; chú thích phạm vi phép đo cgroup.
 
@@ -30,13 +30,13 @@ Chương 4 trình bày **kết quả đo được và phân tích đánh đổi*
 | Mục | Cách trình bày | Nguồn và trạng thái |
 |---|---|---|
 | **4.2.1** | So sánh median wall time Baseline, Selective S=8; Uniform S=8 làm đối chứng bổ sung. Tách kết quả tháng 01 khỏi xu hướng 5 tháng. | `benchmark_nd2_aggregation_summary_official_standalone.csv`; run CSV; Hình ND2 được tái tạo từ summary official. Có đủ ba lượt/phương án, correctness PASS. |
-| **4.2.2** | TSR/PSR và straggler: giải thích stage/task scope, nêu trường hợp metric không khả dụng; tránh gọi phân bố khóa P95 là task skew. | Summary/run CSV ND2. PSR Baseline tháng 01 là N/A; không thay bằng 0. |
+| **4.2.2** | TSR/PSR và straggler: giải thích stage/task scope; tránh gọi phân bố khóa P95 là task skew. | Run tháng 01 mới cho cả ba phương pháp đều có PSR; TSR/PSR tính trên stage được chọn, median 200 task. Không thay metric unavailable ở tháng khác bằng 0. |
 | **4.2.3** | Phân tích Shuffle Write, cùng memory/disk spill nếu metric có; so sánh mức giảm shuffle với tổng thời gian tăng. | Official summary và task metrics. Spill rỗng/null phải ghi “không khả dụng”; chỉ ghi 0 nếu nguồn ghi nhận 0. |
 | **4.2.4** | Đánh giá P95 như heuristic chọn khóa: tác động phân phối và chi phí salting; không khẳng định mô hình phát hiện skew tối ưu. | Artifact hotspot P95 từng tháng, summary ND2, notebook/runner. |
 
 **Thông điệp cần kiểm chứng bằng số liệu:** trong các tháng đã đo, Selective Salting giảm Shuffle Write so với Uniform Salting nhưng wall time vẫn cao hơn Baseline; kết luận giới hạn ở workload/cấu hình đã chạy.
 
-**Sản phẩm:** Bảng 4.2 median và min–max của ba lượt, TSR/PSR, shuffle và spill; Hình 4.2 so sánh ND2 tháng 01; Hình 4.3 xu hướng ND2 qua năm tháng. Không dùng SD trên n=3 để hàm ý ý nghĩa thống kê.
+**Sản phẩm:** Bảng 4.2 median và min–max của ba lượt, TSR/PSR, shuffle và spill; Hình 4.2 so sánh ND2 tháng 01; Hình 4.3 xu hướng ND2 qua năm tháng. Không dùng SD trên n=3 để hàm ý ý nghĩa thống kê. Hình 4.2 đã được tạo lại từ run CSV sau lần chạy 03/11/2026.
 
 ### 4.3. Kết quả thực nghiệm trên phép kết nối phân tán (Shuffle Join Benchmark)
 
@@ -47,7 +47,7 @@ Chương 4 trình bày **kết quả đo được và phân tích đánh đổi*
 | **4.3.3** | Trích final adaptive physical plan cùng tier/run; chỉ ra `SortMergeJoin`, `AQEShuffleRead`, coalescing và việc không có skew-specific split trong các run được báo cáo. | `data/benchmarks/nd3_plans/official_standalone/`; gắn plan với application/lượt tương ứng. Không dùng plan dev thay cho official. |
 | **4.3.4** | So sánh Shuffle Read, memory/disk spill; định lượng OD dimension materialized từ 58.747 lên 83.646 hàng (+24.899) cho tháng 01. Nêu rõ đây là số hàng, không phải phần trăm byte. | ND3 official summary/run CSV, preflight OD key audit và count sau explode. |
 
-**Sản phẩm:** Bảng 4.3 ND3 metrics; Hình 4.4 so sánh tháng 01; Hình 4.5 xu hướng 5 tháng; trích đoạn plan AQE/SMJ và bảng replication overhead.
+**Sản phẩm:** Bảng 4.3 ND3 metrics; Hình 4.4 so sánh tháng 01; Hình 4.5 xu hướng 5 tháng; trích đoạn plan AQE/SMJ và bảng replication overhead. Hình 4.4 đã được tạo lại từ run CSV sau lần chạy 03/11/2026.
 
 ### 4.4. Kiểm chứng tính đúng đắn và nhất quán dữ liệu bằng DuckDB
 
@@ -55,7 +55,7 @@ Chương 4 trình bày **kết quả đo được và phân tích đánh đổi*
 - **4.4.2:** ND3 đối chiếu theo borough pair: trip count, fare, miles, distinct pickup zones và pair coverage.
 - **4.4.3:** giải thích OD composite-key uniqueness/null preflight, manifest, PASS/FAIL và điều kiện loại run (collector phải OK, validation PASS).
 - **Nguồn:** `*_audit_official_standalone.csv`, run/summary CSV, `od_matrix_key_audit.csv`; monthly run/audit trong `data/benchmarks/scaling/2026_02`–`2026_05`.
-- **Sản phẩm:** Bảng 4.4 tóm tắt số lượt hợp lệ/bị loại theo từng phương pháp. Đã đọc cả 10 CSV run-level chính thức (ND2 và ND3, tháng 01–05): mỗi phương pháp-tháng có 3 lượt, 3 `PASS`, 3 collector `OK`; tổng 90/90 lượt hợp lệ, không có lượt bị loại trong các CSV này. Bảng kết quả cần thể hiện số lượt theo phương pháp, không chỉ ghi tổng.
+- **Sản phẩm:** Bảng 4.9 trình bày sai khác audit theo phương án tháng 01; Bảng 4.10 thống kê trạng thái 90 dòng metadata lượt đo từ tháng 01–05. Mỗi ứng dụng đối soát kết quả cuối của từng phương án một lần rồi gán trạng thái phương án cho ba dòng lượt đo; vì vậy `PASS` trên 90 dòng không có nghĩa là 90 audit DuckDB độc lập. Không có dòng nào có collector lỗi hoặc validation cấp phương án thất bại trong metadata hiện có.
 
 | Benchmark | Phương pháp | Tổng lượt | Hợp lệ | Bị loại |
 |---|---|---:|---:|---:|
@@ -97,12 +97,26 @@ Project chưa có feature dataset, nhãn, model, notebook, dự đoán hay bench
 
 ### 4.7. Thảo luận và tổng hợp các đánh đổi kỹ thuật (Trade-offs)
 
-- **4.7.1:** Đặt thời gian, TSR/PSR, shuffle, spill trên cùng workload; nhấn mạnh giảm skew ratio không tự động làm giảm end-to-end duration.
+- **4.7.1:** Đặt wall time, TSR/PSR, shuffle và spill trên cùng workload. Bàn về **CPU tax so với lợi ích giảm shuffle** như giả thuyết giải thích: salting thêm hash, biến đổi/nhân bản dữ liệu và bước tổng hợp/kết hợp bổ sung, nhưng benchmark hiện không thu CPU utilization hay network throughput. Cụm gồm nhiều container trên cùng một host; không được mô tả network I/O là “gần bằng không” hoặc khẳng định CPU là nguyên nhân làm chậm nếu chưa đo profile CPU/network. Shuffle bytes là lượng dữ liệu shuffle được ghi/đọc, không phải số byte chắc chắn đi qua NIC. Kết luận chỉ nên nói các overhead bổ sung là lời giải thích khả dĩ, cần đo riêng để phân biệt.
 - **4.7.2:** Baseline: ít overhead; Selective Salting: thêm hash và two-stage merge; AQE: thích ứng runtime/coalescing nhưng không có skew-specific split trong final plan ở cấu hình đã chạy; Salting Join: nhân bản OD và tăng shuffle. Mô tả AQE không kích hoạt skew split là kết quả âm tính trong cấu hình đã đo. Không so tổng Shuffle Read với ngưỡng skew 16 MiB: AQE xét kích thước từng partition và điều kiện lệch tương đối, không phải tổng bytes của stage.
-- **4.7.3:** Đề xuất tiêu chí chọn theo bằng chứng: kích thước/độ lệch partition sau shuffle, skew stage, khả năng broadcast, chi phí replication, bộ nhớ và yêu cầu thời gian. Ghi đây là hướng dẫn rút từ workload đã thử, không phải định luật tổng quát.
+- **4.7.3:** Tổng hợp thành **Bảng 4.x — Ma trận quyết định kỹ thuật cho Data Engineer**. Bảng phải nối tình huống/workload, tín hiệu cần đo, phương án khuyến nghị, bằng chứng của project và chi phí/điều kiện cần kiểm tra. Đây là quy tắc ra quyết định sơ bộ rút từ benchmark hiện tại, không phải khuyến nghị phổ quát.
 - **4.7.4:** Nối kết quả với thiết kế pipeline: đo đúng scope, correctness trước performance, giữ provenance và kiểm tra tài nguyên thực tế khi scale.
 
-**Sản phẩm:** Bảng trade-off có hàng cho Baseline, Selective/Uniform Salting, AQE và Salting Join; không cần benchmark mới nếu các số ở 4.2–4.3 đã được kiểm tra đồng bộ.
+#### Bảng 4.x — Ma trận quyết định kỹ thuật cho Data Engineer (dự kiến)
+
+| Tình huống / tín hiệu quan sát | Phương án nên thử trước | Bằng chứng trong project | Chi phí mã nguồn & vận hành | Runtime/resource trade-off và điều kiện cần kiểm tra |
+|---|---|---|---|---|
+| Aggregation theo khóa, chưa có bằng chứng task skew gây chậm | Baseline `groupBy` | Tháng 01, Baseline có median wall time thấp hơn hai cấu hình salting đã đo. | **Thấp:** logic declarative, ít nhánh đặc biệt. | Dùng làm mốc; kiểm tra task-duration distribution và stage bottleneck trước khi tối ưu. Kết quả của một workload không chứng minh Baseline luôn tốt nhất. |
+| Aggregation có khóa nóng được xác nhận và task skew ảnh hưởng thời gian | Thử Selective Salting trên tập khóa nóng; giữ chỉ khi end-to-end benchmark cải thiện | Selective Salting ghi ít Shuffle Write hơn Uniform Salting trong run tháng 01, nhưng thời gian vẫn cao hơn Baseline. | **Cao hơn Baseline:** quản lý tập khóa nóng, salt factor và logic hai giai đoạn; cần regression tests khi thay đổi phép tổng hợp. | Có thêm hash/biến đổi khóa và bước kết hợp; CPU tax là giả thuyết chưa được profile. So sánh correctness, wall time, TSR/PSR và shuffle cùng điều kiện. |
+| Đang cần đối chứng cho salting, chưa có lý do workload để phân tán mọi khóa | Không dùng Uniform Salting làm lựa chọn mặc định | Uniform Salting tháng 01 chậm hơn Baseline và Selective Salting; Shuffle Write cao hơn Selective Salting. | **Cao:** phải duy trì salt cho toàn bộ khóa và nhánh kết hợp. | Chỉ dùng làm nhánh đối chứng hoặc khi profiling cho thấy phân tán rộng phù hợp; tránh tăng số khóa/stage không cần thiết. |
+| Shuffle Join, cần cơ chế thích ứng runtime | Thử AQE và xác nhận hành vi trong final adaptive plan | Run tháng 01 ngày 03/11 có median ngắn hơn Baseline khoảng 12%, TSR thấp hơn nhưng có Disk Spill; final plan không có skew-specific split. | **Thấp đến vừa:** ít thay đổi business logic, nhưng cần quản lý config và đọc plan/runtime metrics. | AQE bật không đồng nghĩa skew partition đã được chia. Xác minh plan, spill và partition-level statistics; không kết luận từ tổng bytes của stage. |
+| Join có skew cụ thể còn lại sau khi kiểm tra AQE; dimension có thể nhân bản với chi phí chấp nhận được | Thử Salting Join có giới hạn trên khóa nóng | Salting Join làm OD dimension tháng 01 tăng 24.899 hàng sau replication; run hiện tại chậm hơn và có Shuffle Read cao hơn Baseline. | **Cao:** thêm logic salt, replicate dimension và rủi ro sai kết quả nếu xử lý khóa/nhân bản không nhất quán. | Đo hàng/byte phát sinh, shuffle, spill, thời gian và correctness. Chỉ giữ nếu lợi ích giảm bottleneck bù được chi phí replication. |
+
+**GC và hiệu quả tài nguyên:** collector hiện không lưu `JVM GC Time`, CPU utilization hay cgroup usage theo application. Vì vậy không quy spill hoặc bản sao OD thành bằng chứng JVM Major/Full GC, không đưa ra tỷ lệ GC tăng, và không kết luận phương án nào rẻ nhất về ngân sách. Có thể nêu CPU tax/GC như chi phí cần đo trong lần profiling tiếp theo. `Core-seconds` chỉ nên báo nếu có CPU time thực đo; phép nhân số core được cấp với wall time chỉ là **core-seconds ngân sách cấp phát danh nghĩa**, không phải CPU consumption. Không quy đổi thành chi phí cloud khi chưa có usage và đơn giá tương ứng.
+
+**Quy tắc đọc bảng:** bắt đầu bằng profiling và Baseline; chọn tối ưu hóa theo bottleneck đo được; kiểm chứng correctness trước khi so hiệu năng; chỉ chấp nhận phương án nếu nó cải thiện mục tiêu đã định mà overhead còn phù hợp. Ma trận không thay thế benchmark trên workload và cụm đích.
+
+**Sản phẩm:** Bảng trade-off/decision matrix cho Baseline, Selective/Uniform Salting, AQE và Salting Join. Có thể dùng toàn bộ bằng chứng 4.2–4.3 sau khi khóa nguồn số liệu; không cần benchmark mới riêng để dựng bảng.
 
 ### 4.8. Tổng kết chương
 
@@ -120,11 +134,12 @@ Tóm tắt phát hiện chính, điều kiện thí nghiệm, phương pháp nà
 
 ## Danh sách đầu ra Chương 4
 
-- [ ] Bảng cấu hình môi trường và ngân sách tài nguyên; xác định rõ giới hạn khai báo hay usage đo được.
-- [ ] Bảng/biểu đồ benchmark ND2, bao gồm median, độ phân tán, TSR/PSR và shuffle/spill có sẵn.
-- [ ] Bảng/biểu đồ benchmark ND3, final physical plan AQE, spill và OD replication overhead.
-- [ ] Bảng correctness DuckDB và số run được tính từ official run files.
+- [x] Bảng cấu hình môi trường và ngân sách tài nguyên; xác định rõ giới hạn khai báo hay usage đo được. Bản thảo 4.1 và Hình 4.1 đã có; cgroup usage thực tế chưa đo.
+- [x] Bảng/biểu đồ benchmark ND2, bao gồm median, độ phân tán, TSR/PSR và shuffle/spill có sẵn. Bảng 4.2 và Hình 4.2 dùng run tháng 01 ngày 03/11/2026.
+- [x] Bảng/biểu đồ benchmark ND3, final physical plan AQE, spill và OD replication overhead. Bảng 4.3, Hình 4.4, plan official và số hàng sau salting đã đối chiếu.
+- [x] Bảng correctness DuckDB và trạng thái run được tính từ official artifacts. Bảng 4.9 ghi sai khác audit ở cấp phương án tháng 01; Bảng 4.10 thống kê 90 dòng lượt đo tháng 01–05 và nêu rõ validation PASS được gán ở cấp phương án, không phải 90 lần audit độc lập.
 - [ ] Bảng/biểu đồ so sánh tính ổn định qua 5 tháng input độc lập; tách Raw khỏi Silver và không gọi đây là scaling theo quy mô.
 - [ ] Bản đồ/biểu đồ spatial cùng diễn giải không nhân quả và ghi đúng nhóm phân tích.
 - [x] Loại ML khỏi kết quả Chương 4; chuyển LightGBM thành hướng phát triển Chương 5.
+- [ ] Bảng Ma trận Quyết định kỹ thuật cho Data Engineer, kèm bằng chứng và điều kiện áp dụng cho từng phương án.
 - [ ] Bảng tổng hợp trade-off và kết luận chương.

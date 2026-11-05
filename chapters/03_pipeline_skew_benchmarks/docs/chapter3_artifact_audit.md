@@ -69,12 +69,12 @@ Official full ND3 runs have completed for independent monthly Silver and OD dime
 | [x] | Có sơ đồ pipeline `data/benchmarks/chapter3_pipeline_architecture.png` và script tạo hình. |
 | [x] | Có sơ đồ topology khai báo `data/benchmarks/chapter3_spark_topology.png`; worker evidence của từng run official xác nhận executor hoạt động trên cả hai worker. |
 | [x] | Có hình phân bố P95 (Hình 3.3), hình quy mô raw (Hình 3.4) và bản nháp mục 3.1. |
-| [x] | Chạy full benchmark ND2/ND3 trên năm mức tháng độc lập 01–05/2026; mỗi benchmark/tháng có 3 phương án × 3 lượt đo, collector OK, correctness PASS, manifest và hai-worker evidence. Đây không phải dữ liệu tích lũy; độ rộng scale còn hẹp. |
+| [x] | Chạy full benchmark ND2/ND3 trên năm tập tháng độc lập 01–05/2026; mỗi workload/tháng có 3 phương án × 3 lượt đo, collector OK, audit correctness cấp phương án PASS, manifest và hai-worker evidence. Validation PASS được gán cho các dòng iteration của phương án, không phải audit độc lập từng lượt. Đây không phải dữ liệu tích lũy; độ rộng scale còn hẹp. |
 | **3.2 — Selective Salting cho Aggregation** | |
 | [x] | Có baseline, Uniform Salting S=8, Selective Salting S=8 và tổng hợp hai giai đoạn. |
 | [x] | Có hotspot artifact P95, audit DuckDB và notebook ND2. |
 | [x] | Chạy pilot local ND2; 3/3 phương án PASS DuckDB và lưu local-functional runs/summary/audit/plans. Đây không phải benchmark Standalone. |
-| [x] | Chạy full ND2 Standalone cho tháng 01–05, mỗi tháng 3 lượt/phương án; metadata, hai worker, manifest, task metrics, plans, DuckDB audit đều được lưu; 45/45 lượt PASS. |
+| [x] | Chạy full ND2 Standalone cho tháng 01–05, mỗi tháng 3 lượt/phương án; metadata, hai worker, manifest, task metrics, plans và audit DuckDB cấp phương án được lưu. Có 45 dòng lượt đo với collector OK; 15 audit phương án-tháng PASS, trạng thái được gán cho ba dòng iteration tương ứng. |
 | [x] | Có summary ND2 official về thời gian, TSR/PSR và shuffle; PSR không khả dụng cho Baseline nên để null. |
 | **3.3 — AQE Join** | |
 | [x] | Có nhánh AQE, config factor 2/threshold 16 MiB, runner/notebook và local pilot plan; local plan xác nhận SortMergeJoin nhưng không cho thấy bằng chứng skew split cần cho kết luận cụm. |
@@ -88,7 +88,7 @@ Official full ND3 runs have completed for independent monthly Silver and OD dime
 | [x] | Preflight hiện tại xác nhận 58.747/58.747 composite OD keys duy nhất; kết quả ở `data/benchmarks/od_matrix_key_audit.csv`. |
 | [x] | ND3 run preflight xác nhận OD key uniqueness và lưu OD manifest cùng application ID trong run CSV. |
 | [x] | Runner ND3 hiện preflight OD uniqueness và ghi số hàng dimension trước/sau salt dự kiến, hàng hotspot được nhân bản và số hàng tăng thêm. |
-| [x] | Full ND3 official mới materialize/count OD sau `explode`: 83.646 hàng thực tế, khớp số dự kiến; tăng 24.899 hàng so với 58.747 hàng ban đầu. Count được ghi trong run/summary cùng application ID `app-20261030073818-0003`; 9/9 lượt PASS DuckDB trên hai worker. |
+| [x] | Đợt ND3 official Standalone ngày 30/10/2026 materialize/count OD sau `explode`: 83.646 hàng thực tế, khớp số dự kiến; tăng 24.899 hàng so với 58.747 hàng ban đầu. Count được ghi trong run/summary cùng application ID `app-20261030073818-0003`; ba audit phương án PASS trên hai worker và trạng thái validation được gán cho chín dòng iteration. Kết quả tháng 01 ngày 03/11 được dùng làm số chính ở Chương 4. |
 | **3.5 — Benchmark và kiểm chứng** | |
 | [x] | Runner có warm-up, ba lượt đo full mode, xoay thứ tự, DuckDB audit và thu thập metric. |
 | [x] | Tạo bộ ND3 local-functional với application ID, master, Spark version, manifest, config, plans, correctness audit, memory/disk spill và OD replication counts. |

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">Topology Spark Standalone của benchmark</title>
+  <desc id="desc">Một host chạy Podman Compose với Spark Driver, Master, hai Worker và Airflow phụ trợ. Driver gửi ứng dụng tới Master; Master cấp phát tác vụ cho hai Worker. Metrics được thu từ Spark REST API và Event Logs.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#334155"/></marker>
+    <style>
+      text{font-family:Arial,sans-serif;fill:#172033}.title{font-size:27px;font-weight:700}.host{fill:#f8fafc;stroke:#64748b;stroke-width:2;stroke-dasharray:9 7}.box{fill:#fff;stroke:#2563eb;stroke-width:2;rx:14}.worker{fill:#eff6ff;stroke:#2563eb;stroke-width:2;rx:14}.aux{fill:#f1f5f9;stroke:#64748b;stroke-width:2;rx:14}.label{font-size:20px;font-weight:700}.small{font-size:16px}.arrow{stroke:#334155;stroke-width:2.5;fill:none;marker-end:url(#arrow)}.telemetry{stroke:#0f766e;stroke-width:2.5;stroke-dasharray:8 6;fill:none;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect x="0" y="0" width="1200" height="650" fill="#ffffff"/>
+  <text x="600" y="45" text-anchor="middle" class="title">Topology cụm Spark Standalone — benchmark official</text>
+  <rect x="45" y="75" width="1110" height="505" rx="22" class="host"/>
+  <text x="75" y="110" class="label">Một host vật lý · Podman Compose · mạng container nội bộ</text>
+
+  <rect x="100" y="180" width="250" height="120" class="box"/>
+  <text x="225" y="220" text-anchor="middle" class="label">Spark Driver</text>
+  <text x="225" y="252" text-anchor="middle" class="small">spark-submit · job groups</text>
+  <text x="225" y="277" text-anchor="middle" class="small">2 CPU · giới hạn 2,5 GiB</text>
+
+  <rect x="475" y="180" width="250" height="120" class="box"/>
+  <text x="600" y="220" text-anchor="middle" class="label">Spark Master</text>
+  <text x="600" y="252" text-anchor="middle" class="small">Standalone scheduler</text>
+  <text x="600" y="277" text-anchor="middle" class="small">1 CPU · giới hạn 1 GiB</text>
+
+  <rect x="830" y="150" width="270" height="140" class="worker"/>
+  <text x="965" y="192" text-anchor="middle" class="label">Spark Worker 1</text>
+  <text x="965" y="224" text-anchor="middle" class="small">2 cores · 1 GiB executor</text>
+  <text x="965" y="253" text-anchor="middle" class="small">2 CPU · giới hạn 2,5 GiB</text>
+
+  <rect x="830" y="350" width="270" height="140" class="worker"/>
+  <text x="965" y="392" text-anchor="middle" class="label">Spark Worker 2</text>
+  <text x="965" y="424" text-anchor="middle" class="small">2 cores · 1 GiB executor</text>
+  <text x="965" y="453" text-anchor="middle" class="small">2 CPU · giới hạn 2,5 GiB</text>
+
+  <rect x="100" y="390" width="250" height="100" class="aux"/>
+  <text x="225" y="430" text-anchor="middle" class="label">Airflow</text>
+  <text x="225" y="462" text-anchor="middle" class="small">service phụ · không phải executor</text>
+
+  <rect x="475" y="390" width="250" height="100" class="aux"/>
+  <text x="600" y="430" text-anchor="middle" class="label">Bằng chứng chạy</text>
+  <text x="600" y="462" text-anchor="middle" class="small">Event Logs · Spark REST API</text>
+
+  <path d="M350 215 H465" class="arrow"/>
+  <text x="407" y="199" text-anchor="middle" class="small">submit</text>
+  <path d="M725 215 H820" class="arrow"/>
+  <path d="M725 260 C780 260 780 415 820 415" class="arrow"/>
+  <text x="775" y="330" text-anchor="middle" class="small">cấp phát tác vụ</text>
+  <path d="M350 270 C410 330 430 420 465 430" class="telemetry"/>
+  <path d="M830 250 C770 310 770 430 735 440" class="telemetry"/>
+  <path d="M830 440 H735" class="telemetry"/>
+  <text x="600" y="535" text-anchor="middle" class="small">Ghi chú: các container cùng chia sẻ host; topology này không đại diện cho cụm nhiều máy vật lý.</text>
+</svg>

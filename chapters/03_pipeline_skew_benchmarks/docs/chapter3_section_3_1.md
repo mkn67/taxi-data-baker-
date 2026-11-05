@@ -65,7 +65,9 @@ Các biến được giữ cố định trong mỗi bộ so sánh gồm tập Si
 
 ## 3.1.5. Thiết kế thực nghiệm theo nhiều quy mô dữ liệu và giới hạn suy rộng kết quả từ quy mô nhỏ
 
-Thực nghiệm scaling dùng năm tập dữ liệu tháng độc lập từ 01 đến 05/2026, không phải các tập tích lũy. Cần phân biệt **raw** và **Silver**: raw là tệp Parquet đầu vào trước bước làm sạch; Silver là dữ liệu đã qua tiền xử lý và mới là đầu vào của benchmark ND2/ND3. Số dòng và dung lượng raw chỉ mô tả quy mô dữ liệu nguồn, không phải kích thước đầu vào benchmark. Mỗi tháng được làm sạch bằng cùng quy tắc để tạo Silver, tính lại hotspot P95 nearest-rank từ Silver tháng đó, và tạo OD dimension tháng tương ứng cho ND3. Cùng cấu hình Spark 3.5.9 Standalone, hai Worker, 200 shuffle partitions, một warm-up và ba lượt đo mỗi phương án được giữ cố định. Mỗi tháng chạy đủ ba nhánh ND2 và ba nhánh ND3; tất cả 90 lượt đo có collector `OK`, DuckDB validation `PASS`, và worker evidence cho `spark-worker-1` cùng `spark-worker-2`.
+> **Phân biệt đợt chạy:** Bảng 3.2 và Hình 3.5 là bộ benchmark nhiều tháng được tạo trong đợt Standalone ngày 30/10/2026; các số tháng 01 trong bộ này không phải kết quả chính đang dùng ở Chương 4. ND2/ND3 tháng 01 được chạy lại ngày 03/11/2026 và Chương 4 dùng run mới làm kết quả chính (ND2 application `app-20261103153557-0001`; ND3 `app-20261103153727-0002`). Do chưa chạy lại tháng 02–05 trong cùng đợt, không ghép các kết quả mới tháng 01 với các tháng cũ thành một chuỗi scaling đồng nhất. Bảng/Hình 3.5 được giữ để mô tả bộ so sánh liên tháng ban đầu; xem giới hạn này khi diễn giải.
+
+Thực nghiệm scaling dùng năm tập dữ liệu tháng độc lập từ 01 đến 05/2026, không phải các tập tích lũy. Cần phân biệt **raw** và **Silver**: raw là tệp Parquet đầu vào trước bước làm sạch; Silver là dữ liệu đã qua tiền xử lý và mới là đầu vào của benchmark ND2/ND3. Số dòng và dung lượng raw chỉ mô tả quy mô dữ liệu nguồn, không phải kích thước đầu vào benchmark. Mỗi tháng được làm sạch bằng cùng quy tắc để tạo Silver, tính lại hotspot P95 nearest-rank từ Silver tháng đó, và tạo OD dimension tháng tương ứng cho ND3. Cùng cấu hình Spark 3.5.9 Standalone, hai Worker, 200 shuffle partitions, một warm-up và ba lượt đo mỗi phương án được giữ cố định. Mỗi tháng chạy đủ ba nhánh ND2 và ba nhánh ND3. Có 90 dòng metadata lượt đo ghi collector `OK` và trạng thái validation cấp phương án `PASS`, cùng worker evidence cho `spark-worker-1` và `spark-worker-2`. Trạng thái validation được tạo từ phép đối soát kết quả cuối của từng phương án trong một ứng dụng rồi gán cho các dòng lượt đo cùng phương án; vì vậy đây không phải 90 phép đối soát độc lập.
 
 ![Hình 3.4 — Quy mô dữ liệu raw theo tháng](../../../data/benchmarks/figure_3_4_data_scale.png)
 
@@ -79,11 +81,11 @@ Ngay cả khi có nhiều mức dữ liệu, khả năng suy rộng vẫn bị g
 
 | Tháng | Raw rows | Raw size (MiB) | Silver rows | Silver size (MiB) | ND2 median (Baseline / Selective / Uniform), s | ND3 median (Baseline / AQE / Salting), s | Run evidence |
 |---|---:|---:|---:|---:|---|---|---|
-| 2026-01 | 20.940.373 | 482,4 | 19.993.097 | 324,8 | 1,214 / 3,064 / 3,638 | 7,218 / 7,216 / 8,448 | 18/18 method-runs PASS; 2 workers |
-| 2026-02 | 19.875.686 | 454,7 | 19.045.927 | 308,8 | 1,411 / 2,943 / 3,377 | 7,040 / 7,502 / 8,779 | 18/18 method-runs PASS; 2 workers |
-| 2026-03 | 22.058.358 | 507,9 | 21.094.362 | 345,7 | 1,410 / 2,959 / 3,417 | 7,343 / 8,085 / 9,359 | 18/18 method-runs PASS; 2 workers |
-| 2026-04 | 20.995.953 | 486,2 | 20.038.336 | 327,1 | 1,410 / 2,775 / 3,400 | 7,078 / 7,496 / 8,862 | 18/18 method-runs PASS; 2 workers |
-| 2026-05 | 22.125.744 | 512,7 | 21.092.006 | 345,2 | 1,114 / 2,545 / 3,092 | 7,585 / 7,686 / 10,054 | 18/18 method-runs PASS; 2 workers |
+| 2026-01 | 20.940.373 | 482,4 | 19.993.097 | 324,8 | 1,214 / 3,064 / 3,638 | 7,218 / 7,216 / 8,448 | 18 run rows OK; 6 method audits PASS; 2 workers |
+| 2026-02 | 19.875.686 | 454,7 | 19.045.927 | 308,8 | 1,411 / 2,943 / 3,377 | 7,040 / 7,502 / 8,779 | 18 run rows OK; 6 method audits PASS; 2 workers |
+| 2026-03 | 22.058.358 | 507,9 | 21.094.362 | 345,7 | 1,410 / 2,959 / 3,417 | 7,343 / 8,085 / 9,359 | 18 run rows OK; 6 method audits PASS; 2 workers |
+| 2026-04 | 20.995.953 | 486,2 | 20.038.336 | 327,1 | 1,410 / 2,775 / 3,400 | 7,078 / 7,496 / 8,862 | 18 run rows OK; 6 method audits PASS; 2 workers |
+| 2026-05 | 22.125.744 | 512,7 | 21.092.006 | 345,2 | 1,114 / 2,545 / 3,092 | 7,585 / 7,686 / 10,054 | 18 run rows OK; 6 method audits PASS; 2 workers |
 
 *Nguồn:* raw statistics từ `data/benchmarks/figure_3_4_data_scale.csv`; Silver rows/size và run metrics/provenance từ `data/benchmarks/scaling/monthly_benchmark_summary.csv`. Dung lượng được tính bằng byte chia cho 1.048.576 nên đơn vị chính xác là MiB. Raw chỉ mô tả tệp nguồn; benchmark đọc Silver. Các thời gian là median của ba lượt hợp lệ; SD, TSR, PSR, shuffle, spill, application ID và manifest có trong CSV summary/run artifacts theo tháng. Mỗi tháng chạy 9 lượt ND2 và 9 lượt ND3 (ba phương án × ba lượt đo), không tính warm-up.
 

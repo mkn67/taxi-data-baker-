@@ -1,6 +1,6 @@
 # Tổ chức project theo chương luận văn
 
-Các thư mục `01`–`05` gom bản thảo và chỉ mục bằng chứng theo mục lục. Scripts Chương 1–3 nằm tương ứng trong `scripts/chapter_01/`, `scripts/chapter_02/` và `scripts/chapter_03/`; notebook Chương 3 nằm trong `notebooks/chapter_03/`. Dữ liệu vẫn giữ nguyên trong `data/`; Compose mount nguyên thư mục `scripts/` và `notebooks/`. README từng chương chỉ ra nội dung và artifact tương ứng.
+Các thư mục `01`–`05` gom bản thảo và chỉ mục bằng chứng theo mục lục. Scripts Chương 1–4 nằm tương ứng trong `scripts/chapter_01/` đến `scripts/chapter_04/`; notebook Chương 3 nằm trong `notebooks/chapter_03/`. Dữ liệu vẫn giữ nguyên trong `data/`; Compose mount nguyên thư mục `scripts/` và `notebooks/`. README từng chương chỉ ra nội dung và artifact tương ứng.
 
 | Chương | Thư mục | Nội dung |
 |---|---|---|
@@ -12,7 +12,7 @@ Các thư mục `01`–`05` gom bản thảo và chỉ mục bằng chứng theo
 
 ## Thư mục dùng chung
 
-- `scripts/chapter_01/`–`scripts/chapter_03/`: scripts được nhóm theo đúng chương; tiện ích notebook Chương 3 nằm trong `chapter_03/`.
+- `scripts/chapter_01/`–`scripts/chapter_04/`: scripts được nhóm theo đúng chương; Chương 4 có script tổng hợp bảng từ official run artifacts.
 - `notebooks/chapter_03/`: notebook benchmark và kiểm tra artifact Chương 3.
 - `data/raw/`, `data/silver/`, `data/gold/`: các tầng dữ liệu.
 - `data/benchmarks/`: audit, summary, plan, hình và kết quả theo từng run.
