@@ -123,6 +123,19 @@ Benchmark official và benchmark tháng 02–05 cần đúng volume, dependencie
 | Kế hoạch viết Chương 4 | [chapters/04_results_tradeoffs/plan_chuong_4.md](chapters/04_results_tradeoffs/plan_chuong_4.md) |
 | Tổ chức tài liệu Chương 1–5 | [chapters/README.md](chapters/README.md) |
 
+## Bản đồ theo 4 nội dung đồ án
+
+| Nội dung | Mã nguồn bắt đầu từ | Notebook | Ảnh/bằng chứng chính |
+|---|---|---|---|
+| **1 — Môi trường và khảo sát dữ liệu** | `scripts/chapter_02/02_preprocess_and_audit.py`; các audit/figure ở `scripts/chapter_02/` | Chưa có notebook riêng; quy trình chính chạy bằng script | Hình khảo sát ở `data/zones/`; cấu hình cụm ở `docker-compose.yml` |
+| **2 — Lệch tải trong aggregation** | `scripts/chapter_03/run_benchmark_nd2.py` và `benchmark_engine.py` | `notebooks/chapter_03/02_benchmark_aggregation_salting.ipynb` | Bảng, plan và hình benchmark ở `data/benchmarks/` |
+| **3 — Lệch tải trong join** | `scripts/chapter_03/run_benchmark_nd3.py`, `build_monthly_od_matrix.py` | `notebooks/chapter_03/03_benchmark_join_skew.ipynb` | Run CSV, DuckDB audit và execution plan ở `data/benchmarks/` |
+| **4 — Tự động hóa và đánh giá** | `scripts/chapter_04/build_chapter4_evidence.py`, `build_chapter4_figures.py` | Chưa có notebook riêng | Hình chèn báo cáo ở `docs/assets/chapter4/`; kết quả tổng hợp ở `data/benchmarks/chapter4_evidence/` |
+
+> **Phạm vi hiện thực:** Nội dung 4 hiện có script tổng hợp bằng chứng đã lưu. DAG Airflow và lượt benchmark chính thức trên tháng 03/2026 chưa được triển khai/xác nhận; xem [bản đồ mã nguồn và artifact](docs/project_map_content_1_to_4.md) để phân biệt phần đã có với phần còn thiếu.
+
+Hình được chia theo mục đích: hình trình bày cố định nằm trong `docs/assets/`; hình sinh từ số liệu và bảng kiểm toán ở cạnh dữ liệu/kết quả trong `data/zones/`, `data/benchmarks/` hoặc `data/gold/`. Vị trí dữ liệu hiện tại được giữ nguyên.
+
 ## Giới hạn hiện tại
 
 - Năm input tháng có quy mô gần nhau; chưa chứng minh xu hướng hiệu năng khi dữ liệu tăng nhiều lần.

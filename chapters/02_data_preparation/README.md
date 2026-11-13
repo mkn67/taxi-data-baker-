@@ -6,7 +6,7 @@ Thư mục này là chỉ mục đầu ra cho các mục 2.1–2.7. Dữ liệu 
 
 - Tiền xử lý tuần tự, Silver và audit: `scripts/chapter_02/02_preprocess_and_audit.py`, `scripts/chapter_02/02c_audit_filter_duckdb.py`.
 - Kiểm tra vùng biên và phân loại Taxi Zone: `scripts/chapter_02/02b_zone_boundary_check.py`.
-- Kiểm tra phụ phí và hình liên quan: `scripts/chapter_02/02e_cbd_congestion_fee2.5.py`, `scripts/chapter_02/02_Bang_2.6.py`, `scripts/chapter_02/02_plot_figure_2_6.py`, `data/benchmarks/`.
+- Kiểm tra phụ phí, bảng và hình liên quan: `scripts/chapter_02/audit_cbd_congestion_fee.py`, `build_table_2_6.py`, `plot_figure_2_6.py`; ảnh đầu ra hiện nằm trong `data/zones/`.
 - Silver và hotspot theo tháng: `data/silver/`.
 
 ## Trạng thái

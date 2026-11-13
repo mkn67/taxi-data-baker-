@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import re
+from pathlib import Path
 
 from pyspark.sql import SparkSession, functions as F
 
@@ -10,7 +12,17 @@ from pyspark.sql import SparkSession, functions as F
 def main() -> None:
     silver = os.environ["SILVER_PATH"]
     output = os.environ["OD_MATRIX_PATH"]
-    lookup_path = os.environ.get("ZONE_LOOKUP_PATH", "/opt/spark/data/raw/taxi+_zone_lookup.csv")
+    project_root = Path(__file__).resolve().parents[2]
+    container_lookup = Path("/opt/spark/data/raw/taxi+_zone_lookup.csv")
+    default_lookup = container_lookup if container_lookup.is_file() else project_root / "data/raw/taxi+_zone_lookup.csv"
+    lookup_path = os.environ.get("ZONE_LOOKUP_PATH", str(default_lookup))
+    encoded_months = {
+        match.group(0).replace("-", "_")
+        for value in (silver, output)
+        for match in re.finditer(r"2026[-_]0[1-5]", str(value))
+    }
+    if len(encoded_months) > 1:
+        raise ValueError(f"Silver and OD output paths refer to different months: {silver} / {output}")
 
     spark = SparkSession.builder.appName("Build_Monthly_OD_Matrix").getOrCreate()
     try:

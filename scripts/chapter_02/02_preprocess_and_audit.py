@@ -14,14 +14,43 @@ Sau khi chay, kiem tra bo nho thuc te cua driver/executor trong Spark UI.
 import math
 import os
 import sys
+import re
+from pathlib import Path
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
-INPUT_PATH = os.environ.get("INPUT_PATH", "/opt/bitnami/spark/data/raw/fhvhv_tripdata_2026-01.parquet")
-SILVER_PATH = os.environ.get("SILVER_PATH", "/opt/bitnami/spark/data/silver/fhvhv_2026_01_clean.parquet")
-HOTSPOT_PU_PATH = os.environ.get("HOTSPOT_PU_PATH", "/opt/bitnami/spark/data/silver/hotspots_p95_pu_2026_01")
-HOTSPOT_DO_PATH = os.environ.get("HOTSPOT_DO_PATH", "/opt/bitnami/spark/data/silver/hotspots_p95_do_2026_01")
+ROOT = Path(__file__).resolve().parents[2]
+CONTAINER_DATA = Path("/opt/spark/data")
+DATA_ROOT = CONTAINER_DATA if CONTAINER_DATA.is_dir() else ROOT / "data"
+EXPLICIT_INPUT = os.environ.get("INPUT_PATH")
+month_match = re.search(r"2026[-_]0[1-5]", EXPLICIT_INPUT or "")
+DATA_MONTH = (os.environ.get("DATA_MONTH") or (month_match.group(0) if month_match else "2026_01")).replace("-", "_")
+MONTH_FOR_RAW = DATA_MONTH.replace("_", "-")
+
+INPUT_PATH = os.environ.get(
+    "INPUT_PATH", str(DATA_ROOT / "raw" / f"fhvhv_tripdata_{MONTH_FOR_RAW}.parquet")
+)
+SILVER_PATH = os.environ.get(
+    "SILVER_PATH", str(DATA_ROOT / "silver" / f"fhvhv_{DATA_MONTH}_clean.parquet")
+)
+HOTSPOT_PU_PATH = os.environ.get(
+    "HOTSPOT_PU_PATH", str(DATA_ROOT / "silver" / f"hotspots_p95_pu_{DATA_MONTH}")
+)
+HOTSPOT_DO_PATH = os.environ.get(
+    "HOTSPOT_DO_PATH", str(DATA_ROOT / "silver" / f"hotspots_p95_do_{DATA_MONTH}")
+)
+
+_encoded_months = {
+    match.group(0).replace("-", "_")
+    for value in (INPUT_PATH, SILVER_PATH, HOTSPOT_PU_PATH, HOTSPOT_DO_PATH)
+    for match in re.finditer(r"2026[-_]0[1-5]", str(value))
+}
+if len(_encoded_months) > 1:
+    raise ValueError(
+        "Raw, Silver and hotspot paths refer to different months: "
+        f"{INPUT_PATH}, {SILVER_PATH}, {HOTSPOT_PU_PATH}, {HOTSPOT_DO_PATH}"
+    )
 
 
 def dir_size_mb(path):
@@ -71,6 +100,13 @@ def build_hotspots(df, key_col, out_path, label):
 
 
 def main():
+    if Path(INPUT_PATH).resolve() == Path(SILVER_PATH).resolve():
+        raise ValueError("Raw input and Silver output resolve to the same path.")
+    print(f">>> DATA_MONTH={DATA_MONTH}")
+    print(f">>> Raw input: {INPUT_PATH}")
+    print(f">>> Silver output: {SILVER_PATH}")
+    print(f">>> PU hotspot output: {HOTSPOT_PU_PATH}")
+    print(f">>> DO hotspot output: {HOTSPOT_DO_PATH}")
     # Cau hinh RAM va Core duoc truyen tuong minh qua spark-submit (xem docstring)
     spark = SparkSession.builder \
         .appName("02_Preprocess_and_Sequential_Audit") \

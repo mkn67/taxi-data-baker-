@@ -40,7 +40,7 @@ Pygments==2.21.0
 pyogrio==0.13.0
 pyparsing==3.3.3
 pyproj==3.8.0
-pyspark==3.5.6
+pyspark==3.5.9
 python-dateutil==2.9.0.post0
 pyzmq==27.2.0
 referencing==0.37.0

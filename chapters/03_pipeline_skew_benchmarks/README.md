@@ -13,7 +13,7 @@
 - ND2/ND3: `scripts/chapter_03/benchmark_engine.py`, `scripts/chapter_03/run_benchmark_nd2.py`, `scripts/chapter_03/run_benchmark_nd3.py`.
 - Scaling: `scripts/chapter_03/run_monthly_scaling_benchmarks.sh`, `scripts/chapter_03/aggregate_scaling_benchmarks.py`, `scripts/chapter_03/build_monthly_od_matrix.py`.
 - Hình 3.4 quy mô Raw theo tháng: `scripts/chapter_03/plot_figure_3_4_data_scale.py`.
-- Spatial/Kepler: `scripts/chapter_03/03_build_gold_spatial_analysis.py`, `scripts/chapter_03/build_kepler_spatial_artifact.py`.
+- Spatial/Kepler: `scripts/chapter_03/build_spatial_gold.py`, `scripts/chapter_03/build_kepler_spatial_artifact.py`.
 - Notebook: `notebooks/chapter_03/02_benchmark_aggregation_salting.ipynb`, `notebooks/chapter_03/03_benchmark_join_skew.ipynb`, `notebooks/chapter_03/04_chapter3_artifact_checks.ipynb`.
 
 ## Artifact chính
@@ -39,3 +39,5 @@ python scripts/chapter_03/run_benchmark_nd3.py --mode full --master spark://spar
 ```
 
 Scaling nhiều tháng dùng `bash scripts/chapter_03/run_monthly_scaling_benchmarks.sh`. Xem [README gốc](../../README.md) và checklist artifact trước khi chạy chính thức. Pilot/full là chế độ chạy trên cùng input Silver, không phải mức dữ liệu khác nhau.
+
+Hai benchmark notebook mặc định ở pilot và ghi vào `data/benchmarks/notebook_runs/` để không ghi đè CSV/plan official của runner CLI. Dùng runner script làm nguồn chính cho kết quả benchmark được trích dẫn.

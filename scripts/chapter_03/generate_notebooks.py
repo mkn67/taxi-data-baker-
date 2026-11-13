@@ -31,7 +31,7 @@ def create_aggregation_notebook() -> nbformat.NotebookNode:
 **Đề tài:** Tối ưu hóa Pipeline Xử lý Lệch tải Không gian trên Apache Spark và Đánh giá Mật độ Trả khách quanh Ranh giới Thu phí Manhattan (Dữ liệu NYC HVFHV 2026)  
 **Phần phụ trách:** Chương 3 (Mục 3.1 & 3.2: Thiết kế Giải thuật Phép gom nhóm) và Chương 4 (Mục 4.2: Đánh giá Hiệu năng Aggregation Skew)  
 **Tác giả:** Nhóm nghiên cứu Big Data Pipeline  
-**Công nghệ mục tiêu:** Spark 3.5.9 theo Compose; host `requirements.txt` hiện pin PySpark 3.5.6 và cần được đồng bộ trước benchmark chính thức; DuckDB 1.5.6
+**Công nghệ mục tiêu:** Spark/PySpark 3.5.9 theo Compose và môi trường host; DuckDB 1.5.6
 
 ---
 
@@ -54,7 +54,7 @@ Nội dung này tập trung độc lập vào khảo sát hiện tượng lệch
 """))
 
     cells.append(new_markdown_cell("""## Saved-output provenance
-The outputs already stored in this notebook are historical local-functional evidence: the recorded Spark master is `local[4]`. Do not cite those timings as multi-worker Standalone results. Full mode now requires Spark 3.5.9 and active executors on at least two worker hosts; outputs are written to the `official_standalone` tier only after those checks pass."""))
+Earlier saved outputs were local-functional evidence (`local[4]`) and are cleared because they used the pre-isolation output paths. Do not cite those timings as multi-worker Standalone results. The current notebook defaults to pilot and writes under `data/benchmarks/notebook_runs/`; set `BENCHMARK_MODE=full` explicitly to run three measured iterations. Full mode also requires Spark 3.5.9 and active executors on at least two worker hosts."""))
 
     # --------------------------------------------------------------------------
     # Cell 2: Imports & Environment Configuration
@@ -73,8 +73,14 @@ import duckdb
 import matplotlib.pyplot as plt
 from pyspark.sql import functions as F
 
-# Bổ sung thư mục gốc vào path để import module hỗ trợ
-sys.path.insert(0, os.path.abspath(".."))
+# Tìm project root để notebook chạy được từ project root hoặc thư mục notebooks/chapter_03.
+from pathlib import Path
+_cwd = Path.cwd().resolve()
+_roots = [_cwd, *_cwd.parents]
+PROJECT_ROOT = next((p for p in _roots if (p / "scripts/chapter_03/benchmark_engine.py").is_file()), None)
+if PROJECT_ROOT is None:
+    raise RuntimeError("Không tìm thấy project root chứa scripts/chapter_03/benchmark_engine.py")
+sys.path.insert(0, str(PROJECT_ROOT))
 from scripts.chapter_03.benchmark_engine import (
     configure_environment,
     resolve_paths,
@@ -89,11 +95,17 @@ from scripts.chapter_03.benchmark_engine import (
     verify_aggregation_with_duckdb,
     verify_distributed_executors,
     write_csv_preserving_history,
+    validate_month_alignment,
 )
 
 # Kích hoạt cấu hình môi trường chuẩn
 configure_environment()
 paths = resolve_paths()
+validate_month_alignment([("Silver", paths["silver_path"]), ("PULocationID hotspots", paths["hotspots_pu_path"])])
+paths["benchmarks_dir"] = os.path.join(paths["benchmarks_dir"], "notebook_runs")
+paths["nd2_plans_dir"] = os.path.join(paths["nd2_plans_dir"], "notebook_runs")
+os.makedirs(paths["benchmarks_dir"], exist_ok=True)
+os.makedirs(paths["nd2_plans_dir"], exist_ok=True)
 
 print(">>> Cấu hình đường dẫn hệ thống:")
 for k, v in paths.items():
@@ -163,7 +175,7 @@ print(">>> ĐẠT: Chiến lược gán salt hoàn toàn đồng đều (~12.5% 
 Cấu hình shuffle partition mục tiêu là `spark.sql.shuffle.partitions = 200`. Tắt AQE (`spark.sql.adaptive.enabled = false`) nhằm cô lập chính xác hành vi của toán tử gom nhóm."""))
 
     cells.append(new_code_cell("""# Chế độ thực nghiệm: 'pilot' (kiểm tra nhanh logic) hoặc 'full' (benchmark chính thức)
-BENCHMARK_MODE = os.environ.get("BENCHMARK_MODE", "full")
+BENCHMARK_MODE = os.environ.get("BENCHMARK_MODE", "pilot")
 NUM_ITERATIONS = 1 if BENCHMARK_MODE == "pilot" else 3
 SHUFFLE_PARTITIONS = 200
 
@@ -504,7 +516,7 @@ def create_join_notebook() -> nbformat.NotebookNode:
 **Đề tài:** Tối ưu hóa Pipeline Xử lý Lệch tải Không gian trên Apache Spark và Đánh giá Mật độ Trả khách quanh Ranh giới Thu phí Manhattan (Dữ liệu NYC HVFHV 2026)  
 **Phần phụ trách:** Chương 3 (Mục 3.3 & 3.4: Thiết kế Giải thuật Phép nối Skew trên Ma trận OD) và Chương 4 (Mục 4.3: Đánh giá Hiệu năng Join Skew)  
 **Tác giả:** Nhóm nghiên cứu Big Data Pipeline  
-**Công nghệ mục tiêu:** Spark 3.5.9 theo Compose; host `requirements.txt` hiện pin PySpark 3.5.6 và cần được đồng bộ trước benchmark chính thức; DuckDB 1.5.6
+**Công nghệ mục tiêu:** Spark/PySpark 3.5.9 theo Compose và môi trường host; DuckDB 1.5.6
 
 ---
 
@@ -526,7 +538,7 @@ Nội dung này tập trung độc lập vào khảo sát và tối ưu hóa hi�
 """))
 
     cells.append(new_markdown_cell("""## Saved-output provenance
-The outputs already stored in this notebook are historical local-functional evidence. The recorded Spark version is 3.5.6, master is `local[4]`, and application ID begins with `local-`; the Spark UI showed only the driver executor. Do not cite those timings as multi-worker Standalone results. Full mode now requires Spark 3.5.9 and active executors on at least two worker hosts; outputs are written to the `official_standalone` tier only after those checks pass."""))
+Earlier saved outputs were local-functional evidence (Spark 3.5.6, `local[4]`, driver only) and are cleared because they used the pre-isolation output paths. Do not cite those timings as multi-worker Standalone results. The current notebook defaults to pilot and writes under `data/benchmarks/notebook_runs/`; set `BENCHMARK_MODE=full` explicitly to run three measured iterations. Full mode requires Spark 3.5.9 and active executors on at least two worker hosts."""))
 
     # --------------------------------------------------------------------------
     # Cell 2: Imports & Environment
@@ -545,8 +557,14 @@ import duckdb
 import matplotlib.pyplot as plt
 from pyspark.sql import functions as F
 
-# Bổ sung thư mục gốc vào path để import module hỗ trợ
-sys.path.insert(0, os.path.abspath(".."))
+# Tìm project root để notebook chạy được từ project root hoặc thư mục notebooks/chapter_03.
+from pathlib import Path
+_cwd = Path.cwd().resolve()
+_roots = [_cwd, *_cwd.parents]
+PROJECT_ROOT = next((p for p in _roots if (p / "scripts/chapter_03/benchmark_engine.py").is_file()), None)
+if PROJECT_ROOT is None:
+    raise RuntimeError("Không tìm thấy project root chứa scripts/chapter_03/benchmark_engine.py")
+sys.path.insert(0, str(PROJECT_ROOT))
 from scripts.chapter_03.benchmark_engine import (
     configure_environment,
     resolve_paths,
@@ -561,10 +579,16 @@ from scripts.chapter_03.benchmark_engine import (
     verify_join_with_duckdb,
     verify_distributed_executors,
     write_csv_preserving_history,
+    validate_month_alignment,
 )
 
 configure_environment()
 paths = resolve_paths()
+validate_month_alignment([("Silver", paths["silver_path"]), ("OD matrix", paths["od_matrix_path"]), ("PULocationID hotspots", paths["hotspots_pu_path"])])
+paths["benchmarks_dir"] = os.path.join(paths["benchmarks_dir"], "notebook_runs")
+paths["plans_dir"] = os.path.join(paths["plans_dir"], "notebook_runs")
+os.makedirs(paths["benchmarks_dir"], exist_ok=True)
+os.makedirs(paths["plans_dir"], exist_ok=True)
 
 print(">>> Cấu hình đường dẫn hệ thống:")
 for k, v in paths.items():
@@ -627,7 +651,7 @@ display(df_hp_coverage)
     cells.append(new_markdown_cell("""## 3. Khởi tạo SparkSession Chuẩn Thực nghiệm
 Cấu hình shuffle partitions = 200. Các cấu hình `autoBroadcastJoinThreshold` và `adaptive.enabled` được kiểm soát độc lập cho từng nhánh thí nghiệm."""))
 
-    cells.append(new_code_cell("""BENCHMARK_MODE = os.environ.get("BENCHMARK_MODE", "full")
+    cells.append(new_code_cell("""BENCHMARK_MODE = os.environ.get("BENCHMARK_MODE", "pilot")
 NUM_ITERATIONS = 1 if BENCHMARK_MODE == "pilot" else 3
 SHUFFLE_PARTITIONS = 200
 

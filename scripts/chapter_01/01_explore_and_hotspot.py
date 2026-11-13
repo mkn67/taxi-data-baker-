@@ -1,7 +1,17 @@
 import os
 import shutil
+from pathlib import Path
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
+
+ROOT = Path(__file__).resolve().parents[2]
+CONTAINER_DATA = Path("/opt/spark/data")
+DATA_ROOT = CONTAINER_DATA if CONTAINER_DATA.is_dir() else ROOT / "data"
+RAW_PATH = os.environ.get("INPUT_PATH", str(DATA_ROOT / "raw/fhvhv_tripdata_2026-01.parquet"))
+LEGACY_OUTPUT = os.environ.get(
+    "HOTSPOT_EXPLORATORY_OUTPUT",
+    str(DATA_ROOT / "zones/hotspots_p95_exploratory_legacy.csv"),
+)
 
 def main():
     # 1. Khởi tạo Spark kết nối tới Master Standalone
@@ -15,7 +25,7 @@ def main():
     print("\n" + "="*50)
     print(">>> 1. DOC DU LIEU PARQUET THANG 01/2026...")
     print("="*50)
-    df = spark.read.parquet("/opt/bitnami/spark/data/raw/fhvhv_tripdata_2026-01.parquet")
+    df = spark.read.parquet(RAW_PATH)
 
     print("\n>>> 2. SCHEMA CUA TAP DU LIEU:")
     df.printSchema()
@@ -52,7 +62,8 @@ def main():
     hotspot_zones.show(20, truncate=False)
 
     # 5. Xuat danh sach Hotspots H ra 1 tep CSV don bang Python
-    output_csv = "/opt/bitnami/spark/data/zones/hotspots_p95.csv"
+    output_csv = LEGACY_OUTPUT
+    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
     
     # Xoa thu muc trung ten neu da bi tao loi truoc do
     if os.path.exists(output_csv):

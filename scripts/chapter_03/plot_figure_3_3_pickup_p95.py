@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import shutil
 import tempfile
 from datetime import datetime, timezone
@@ -170,6 +171,10 @@ def main() -> None:
     silver_path = Path(os.environ.get("SILVER_PATH", SILVER_DEFAULT))
     hotspot_path = Path(os.environ.get("HOTSPOT_PU_PATH", HOTSPOT_DEFAULT))
     output_path = Path(os.environ.get("FIGURE_3_3_PATH", FIGURE_DEFAULT))
+    silver_months = {m.group(0).replace("-", "_") for m in re.finditer(r"2026[-_]0[1-5]", str(silver_path))}
+    hotspot_months = {m.group(0).replace("-", "_") for m in re.finditer(r"2026[-_]0[1-5]", str(hotspot_path))}
+    if silver_months and hotspot_months and silver_months != hotspot_months:
+        raise ValueError(f"Silver and P95 hotspot artifacts refer to different months: {silver_path} / {hotspot_path}")
     counts, threshold, rank = load_and_validate_counts(silver_path, hotspot_path)
     plot_figure(counts, threshold, rank, output_path)
     hot = counts[counts["trip_count"] >= threshold].sort_values("trip_count", ascending=False)

@@ -27,18 +27,23 @@ from scripts.chapter_03.benchmark_engine import (
     verify_aggregation_with_duckdb,
     verify_distributed_executors,
     write_csv_preserving_history,
+    validate_month_alignment,
 )
 
 
 def main():
     parser = argparse.ArgumentParser(description="ND2 Aggregation Skew Benchmark Runner")
-    parser.add_argument("--mode", choices=["pilot", "full"], default="full", help="Benchmark execution mode")
+    parser.add_argument("--mode", choices=["pilot", "full"], default="pilot", help="Benchmark mode (default: pilot; use full for official 3-iteration runs)")
     parser.add_argument("--master", default=None, help="Spark Master URL")
     parser.add_argument("--partitions", type=int, default=200, help="Shuffle partitions count")
     args = parser.parse_args()
 
     configure_environment()
     paths = resolve_paths()
+    validate_month_alignment([
+        ("Silver", paths["silver_path"]),
+        ("PULocationID hotspots", paths["hotspots_pu_path"]),
+    ])
     hotspot_pu_ids = load_hotspot_pu_ids(paths["hotspots_pu_path"])
     silver_manifest = dataset_manifest_fingerprint(paths["silver_path"])
 

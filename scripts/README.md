@@ -4,7 +4,7 @@ Chạy lệnh từ project root. Thư mục `chapter_01`–`chapter_04` khớp t
 
 | Thư mục | Vai trò | Bắt đầu từ |
 |---|---|---|
-| `chapter_01/` | Khảo sát sơ bộ dữ liệu cho Chương 1 | `README.md` (ghi chú script khảo sát cũ) |
+| `chapter_01/` | Khảo sát sơ bộ dữ liệu | `01_explore_and_hotspot.py` (script cũ; không phải nguồn hotspot benchmark chính thức) |
 | `chapter_02/` | Làm sạch, Silver, audit, boundary và hình Chương 2 | `02_preprocess_and_audit.py` |
 | `chapter_03/` | ND2/ND3, benchmark nhiều tháng độc lập, OD, spatial Gold/Kepler và hình Chương 3 | `run_benchmark_nd2.py`, `run_benchmark_nd3.py` |
 | `chapter_04/` | Tính lại bảng kết quả/correctness và vẽ hình benchmark tháng 01 cho Chương 4 | `build_chapter4_evidence.py`, `build_chapter4_figures.py` |
@@ -19,7 +19,7 @@ Chạy lệnh từ project root. Thư mục `chapter_01`–`chapter_04` khớp t
 - `chapter_02/02_preprocess_and_audit.py`: lọc Raw tháng 01/2026, ghi Silver, audit tuần tự và hotspot P95.
 - `chapter_02/02b_zone_boundary_check.py`: audit zone ứng viên quanh đường 60th Street.
 - `chapter_02/02c_audit_filter_duckdb.py`: audit độc lập bằng DuckDB.
-- Các script `plot_*.py`: tạo hình kiểm toán và hình minh họa Chương 2.
+- `build_table_2_6.py`, `audit_cbd_congestion_fee.py` và `plot_figure_2_4.py`–`plot_figure_2_8.py`: bảng/hình khảo sát; ảnh đầu ra ở `data/zones/`.
 
 Ví dụ: `python scripts/chapter_02/02_preprocess_and_audit.py`.
 
@@ -30,7 +30,7 @@ Ví dụ: `python scripts/chapter_02/02_preprocess_and_audit.py`.
 - Engine dùng chung: `chapter_03/benchmark_engine.py`.
 - Scaling tháng độc lập: `chapter_03/run_monthly_scaling_benchmarks.sh`.
 - Hình quy mô input Raw theo tháng: `chapter_03/plot_figure_3_4_data_scale.py`.
-- Spatial Gold và Kepler: `chapter_03/03_build_gold_spatial_analysis.py`, `chapter_03/build_kepler_spatial_artifact.py`.
+- Spatial Gold và Kepler: `chapter_03/build_spatial_gold.py`, `chapter_03/build_kepler_spatial_artifact.py`.
 - Tạo/kiểm tra notebook: `chapter_03/generate_notebooks.py`, `chapter_03/test_notebook_execution.py`.
 
 Ví dụ chạy thử:
@@ -63,3 +63,9 @@ python scripts/chapter_04/build_chapter4_figures.py
 ```
 
 Các bảng được ghi vào `data/benchmarks/chapter4_evidence/`. Bản thảo mục 4.1–4.4 nằm tại `chapters/04_results_tradeoffs/sections_4_1_to_4_4.md`.
+
+Các script Chương 4 hiện đọc và tổng hợp artifacts đã lưu; chúng không điều phối Spark bằng Airflow và không khởi chạy benchmark mới. Trạng thái DAG được ghi tại `dags/README.md`.
+
+## Bản đồ theo nội dung đồ án
+
+Để xem từng Nội dung 1–4 nối với script, notebook và vị trí đầu ra nào, mở [`docs/project_map_content_1_to_4.md`](../docs/project_map_content_1_to_4.md). Dữ liệu giữ cấu trúc hiện tại; hình sinh từ dữ liệu được lưu cạnh artifacts nguồn trong `data/`, hình trình bày ở `docs/assets/`.

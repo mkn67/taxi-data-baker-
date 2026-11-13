@@ -19,6 +19,7 @@ import json
 import hashlib
 import math
 import os
+import re
 import random
 import shutil
 import statistics
@@ -69,7 +70,9 @@ def resolve_paths() -> Dict[str, str]:
     in_container = is_in_container()
 
     # Prefer repository root relative to this file if data exists
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # __file__ is <project>/scripts/chapter_03/benchmark_engine.py; go up
+    # three levels so host/local runs resolve <project>/data, not scripts/data.
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     if os.path.isdir(os.path.join(repo_root, "data")):
         base_dir = repo_root
     elif in_container and os.path.isdir("/opt/spark/data"):
@@ -116,6 +119,21 @@ def resolve_paths() -> Dict[str, str]:
         "nd2_plans_dir": nd2_plans_dir,
         "events_dir": events_dir,
     }
+
+
+def validate_month_alignment(named_paths: list[tuple[str, str]]) -> None:
+    """Reject mixed-month Silver, hotspot and OD inputs when paths encode YYYY_MM/ YYYY-MM."""
+    found: dict[str, str] = {}
+    for label, path in named_paths:
+        matches = set(re.findall(r"2026[-_]0[1-5]", str(path)))
+        if len(matches) > 1:
+            raise ValueError(f"{label} path encodes multiple dataset months: {path}")
+        if matches:
+            found[label] = matches.pop().replace("-", "_")
+    months = set(found.values())
+    if len(months) > 1:
+        details = ", ".join(f"{name}={month}" for name, month in found.items())
+        raise ValueError(f"Mixed-month benchmark inputs are not allowed: {details}")
 
 
 def _to_duckdb_parquet_glob(path_str: str) -> str:
