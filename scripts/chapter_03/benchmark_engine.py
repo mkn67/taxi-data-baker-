@@ -50,8 +50,15 @@ def configure_environment():
                 os.environ["JAVA_HOME"] = candidate
                 break
 
-    # Prevent Python version mismatch between driver and worker
-    os.environ["PYSPARK_PYTHON"] = sys.executable
+    # Executors in the Spark containers use their own /usr/bin/python3. The
+    # Airflow driver has a virtualenv executable that does not exist on workers.
+    in_container = os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv") or (
+        os.path.exists("/opt/spark/work-dir") and not os.path.exists("/home/kedora")
+    )
+    os.environ["PYSPARK_PYTHON"] = (
+        os.environ.get("SPARK_EXECUTOR_PYTHON", "/usr/bin/python3")
+        if in_container else sys.executable
+    )
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
 
@@ -769,6 +776,19 @@ def join_baseline_smj(spark: SparkSession, df_trips: DataFrame, df_od: DataFrame
 
     return df_trips.hint("merge").join(
         df_od.hint("merge"),
+        ["PULocationID", "DOLocationID"],
+        "inner",
+    )
+
+
+def join_broadcast_reference(spark: SparkSession, df_trips: DataFrame, df_od: DataFrame) -> DataFrame:
+    """Deployment reference: broadcast the OD dimension without changing join semantics."""
+    spark.conf.set("spark.sql.adaptive.enabled", "false")
+    spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "false")
+    # The hint makes this an explicit broadcast reference, independent of stale
+    # session settings left by the preceding forced-SMJ method.
+    return df_trips.join(
+        F.broadcast(df_od),
         ["PULocationID", "DOLocationID"],
         "inner",
     )

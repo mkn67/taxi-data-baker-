@@ -16,7 +16,7 @@ Số chuyến theo từng `PULocationID` được tính trước để xác đ�
 
 Với Silver tháng 01/2026 hiện có, phép kiểm tra độc lập cho 261 vùng pickup khác null, hạng P95 là 248, ngưỡng 194.522 chuyến và 14 khóa H: 7, 37, 61, 76, 79, 112, 132, 138, 161, 181, 230, 231, 234 và 255. Artifact lưu tại `data/silver/hotspots_p95_pu_2026_01/`. Trước khi báo cáo benchmark, cần gắn danh sách/threshold này với manifest dữ liệu của cùng lần chạy. Loader chính ưu tiên artifact đã lưu; nhánh fallback trong mã dùng `QUANTILE_DISC`, do đó nếu chạy mà thiếu artifact cần kiểm tra sự tương đương của tập được tái tạo với quy tắc nearest-rank đã công bố.
 
-> **[CHÈN HÌNH 3.3 TẠI ĐÂY]** Phân bố số chuyến theo thứ hạng pickup và ngưỡng P95; hình được tạo bởi `scripts/chapter_03/plot_figure_3_3_pickup_p95.py` tại `data/benchmarks/figure_3_3_pickup_p95_hotspots.png`.
+Phân bố chuyến và ngưỡng P95 đã được trình bày tại Hình 3.3 trong mục 3.1.3; không dùng tần suất khóa để thay thế bằng chứng về thời gian task.
 
 ### 3.2.3. Cơ chế Two-Stage Aggregation và gán Salt có chọn lọc (S=8)
 
@@ -32,7 +32,7 @@ Bộ thu thập lưu thời gian wall-clock của job group, TSR, PSR khi metric
 
 Trong **đợt chạy nhiều tháng ngày 30/10/2026**, median wall time baseline/selective/uniform của ND2 theo tháng 01–05 (giây) lần lượt là: 1,214/3,064/3,638; 1,411/2,943/3,377; 1,410/2,959/3,417; 1,410/2,775/3,400; 1,114/2,545/3,092. Ở bộ số liệu của đợt đó, baseline nhanh nhất; selective có shuffle write median 0,10 MB so với 0,45 MB của uniform. Số tháng 01 trong chuỗi này là kết quả lịch sử, không phải số chính ở Chương 4. Nhận xét không khẳng định salting không có ích ở quy mô hoặc phân bố khác.
 
-> **[CHÈN BẢNG KẾT QUẢ 3.2 TẠI ĐÂY]** Bảng hợp nhất ở `data/benchmarks/scaling/monthly_benchmark_summary.csv`; run-level metrics/provenance theo từng tháng ở `data/benchmarks/scaling/2026_02` … `2026_05` và official tier gốc cho 2026-01.
+Kết quả tháng 01 của đợt chính và bảng so sánh các tháng độc lập được trình bày ở mục 4.2 và 4.5. Số liệu nhiều tháng của đợt cũ ở đoạn trên chỉ là bối cảnh cho phương pháp, không ghép với lượt tháng 01 mới để tạo chuỗi scaling.
 
 ## 3.3. Xử lý lệch tải trong phép kết nối phân tán (Join) bằng Spark AQE
 
@@ -64,7 +64,7 @@ AQE có thể không kích hoạt skew splitting nếu partition không vượt 
 
 > **Kết quả Standalone theo tháng:** mỗi ứng dụng có audit DuckDB ở cấp phương án; trạng thái audit được gán cho các dòng metadata của ba lượt đo, không phải ba audit độc lập. Các final AQE plans có `isFinalPlan=true`, `SortMergeJoin`, `AQEShuffleRead coalesced`, không có skew-specific partition splitting. Vì vậy benchmark xác nhận AQE chạy/coalescing, nhưng không xác nhận skew split trong tập/config đã đo.
 
-> **[CHÈN HÌNH 3.3.x TẠI ĐÂY]** Trích đoạn physical plan Baseline và AQE từ cùng tier/lần chạy; chú thích vị trí `SortMergeJoin`, `Exchange` và dấu hiệu skew split nếu xuất hiện. Không dùng plan dev như bằng chứng chính thức.
+Đối chiếu physical plan cuối của cùng đợt chạy được trình bày ở Bảng 4.7: Baseline giữ `SortMergeJoin` và hai `Exchange`; AQE có `AQEShuffleRead coalesced` nhưng không có node skew split. Các plan development được lưu riêng và không dùng làm bằng chứng cho kết luận chính thức.
 
 ## 3.4. Xử lý lệch tải trong phép kết nối phân tán (Join) bằng Salting Join
 
@@ -94,7 +94,27 @@ Run official tier hiện lưu metadata/provenance, hai worker, manifest, task me
 
 > **Kết quả ND3 của đợt Standalone ngày 30/10/2026 (3 lượt/phương án, application `app-20261030073818-0003`):** median wall time Baseline 7,218 s, AQE 7,216 s, Salting S=8 8,448 s. Median shuffle read lần lượt 295,72 MB, 295,22 MB và 326,47 MB; TSR lần lượt 3,19, 1,03 và 2,92; PSR 2,06, 1,00 và 1,60. Memory spill median lần lượt 0, 480, 0 MB; disk spill median 0, 128,36 MB. Ba kết quả phương án đều PASS audit DuckDB; chín dòng metadata lượt đo đều ghi collector `OK` và validation cấp phương án `PASS` trên hai worker. Đây là kết quả của đợt chạy trước; kết quả tháng 01 dùng làm số chính thức ở Chương 4 thuộc application `app-20261103153727-0002` ngày 03/11/2026. AQE có spill trong cả hai đợt; physical plan cần được đọc cùng run summary và config không tự chứng minh skew split. OD replication được materialize: 58.747 → 83.646 hàng (+24.899). Mỗi kết quả chỉ áp dụng cho input/cấu hình của đợt tương ứng.
 
-> **[CHÈN BẢNG KẾT QUẢ 3.4 TẠI ĐÂY]** Lấy số liệu từ `data/benchmarks/benchmark_nd3_join_summary_official_standalone.csv` và các lượt hợp lệ từ `data/benchmarks/benchmark_nd3_join_runs_official_standalone.csv`; audit correctness ở `data/benchmarks/benchmark_nd3_join_audit_official_standalone.csv`.
+Kết quả chính của ND3 tháng 01, từng lượt, physical plan và chi phí nhân bản OD được trình bày tại các Bảng 4.4–4.8; provenance được lưu trong CSV cấp lượt và audit của tier `official_standalone`.
+
+## 3.5. Thiết kế quy trình benchmark và kiểm chứng tính đúng đắn
+
+### 3.5.1. Cấu hình cụm Spark và chuẩn hóa điều kiện thực nghiệm
+
+Các phép đo chính chạy trên Spark Standalone 3.5.9 với một Master và hai Worker trong Podman Compose, cùng một máy vật lý. Driver nộp ứng dụng lên Master; metadata mỗi application ghi master URL, phiên bản Spark và các worker host đã cấp executor. Giới hạn CPU/bộ nhớ container là cấu hình khai báo, không phải chuỗi đo mức sử dụng tài nguyên theo từng run. Chương 4 trình bày các giá trị khai báo và application ID cụ thể.
+
+Trong từng bài toán, các phương án đọc cùng Silver và cùng bảng phụ trợ tương ứng, dùng 200 shuffle partitions, cùng môi trường thực thi và cùng đầu ra logic. ND2 tắt AQE ở cả ba nhánh để so sánh cách tổng hợp. ND3 tắt broadcast và dùng MERGE hint để cô lập ba cách xử lý Sort-Merge Join; đây là đối chứng cho shuffle join, không phải lựa chọn tối ưu mặc định khi triển khai. Nhánh AQE đặt skew factor 2 và ngưỡng 16 MiB; trạng thái can thiệp phải được đọc từ plan cuối của đúng run.
+
+### 3.5.2. Quy trình chạy thử, warm-up và đo lặp
+
+Quy trình thiết kế có một action warm-up riêng cho mỗi phương án, sau đó ba lượt đo. ND2 thực hiện action này; ở các artifact ND3 chính thức tháng 01–05 và ND4 tháng 03 trước ngày 21/11/2026, Event Log không có job warm-up vì runner ND3 cũ chỉ dựng DataFrame. Lỗi runner đã được sửa bằng `collect()` và được kiểm tra qua pilot riêng sau sửa. Thứ tự phương án luân phiên giữa các vòng đo để tránh một phương án luôn chạy đầu hoặc cuối. Lượt warm-up, khi thực sự được thực thi, không tham gia bảng kết quả. Mỗi lượt đo có job group, mốc bắt đầu/kết thúc, application ID, cấu hình, đường dẫn tập dữ liệu và manifest dựa trên tên Parquet tương đối, kích thước và thời điểm sửa đổi; manifest này nhận diện tập tệp, không phải checksum nội dung.
+
+Các lượt được giữ để tổng hợp khi collector có trạng thái `OK` và audit đúng đắn của phương án `PASS`; trạng thái audit cấp phương án được ghi lại ở các dòng iteration liên quan. Bảng kết quả dùng trung vị và khoảng nhỏ nhất–lớn nhất của ba lượt. Ba lần đo chưa đủ để khẳng định ý nghĩa thống kê hoặc ổn định trên cụm khác. Benchmark chạy riêng từng tháng 01–05 mô tả sự thay đổi giữa tháng; chúng không phải phép đo trên một đầu vào tích lũy năm tháng.
+
+### 3.5.3. Thời gian, TSR/PSR, shuffle, spill và kiểm tra tải tính toán
+
+Thời gian toàn phần là khoảng từ lúc bắt đầu job group tới khi hành động materialize hoàn tất. Collector chọn stage hoàn tất có tổng shuffle read và write lớn nhất, dùng executor runtime của successful tasks để tính TSR = thời gian task lớn nhất / trung vị; PSR dùng cùng một trường số bản ghi khả dụng cho mọi task trong stage. Mẫu số bằng 0 hoặc metric thiếu được ghi là không khả dụng. Shuffle và spill được cộng trên các stage hoàn tất thuộc job group; vì thế các đại lượng này có phạm vi khác TSR/PSR.
+
+Số chuyến tập trung vào một khóa, số record trong task và thời gian task là ba mức quan sát khác nhau. Để kiểm tra liệu cân bằng số bản ghi có đi cùng cân bằng tải tính toán, phân tích bổ sung đối chiếu shuffle-read records với executor runtime trên *cùng stage* và từng run, không gộp task từ các stage khác nhau. Tương quan ở cấp task là mô tả cơ chế, không chứng minh riêng hot key nào gây chậm hoặc nguyên nhân CPU/I/O. Các phép đo CPU/memory của container chỉ được diễn giải khi có collector tương ứng; cấu hình cgroup không thay thế số đo sử dụng thực tế.
 
 ### 3.5.4. Đối soát kết quả bằng DuckDB và xác nhận tính toàn vẹn sau tối ưu hóa
 
@@ -102,7 +122,7 @@ DuckDB được dùng làm đường tính độc lập, không dựa trên kế
 
 Trong benchmark ND3, OD dimension cần duy nhất theo composite key. Preflight trong mỗi application ghi OD uniqueness và manifest. Các dòng đo được đưa vào summary khi collector status là `OK` và phương án có correctness validation `PASS`; trạng thái phương án được gán cho các dòng iteration tương ứng. Tất cả các tháng official hiện có đều đủ provenance và audit ở cấp phương án đạt.
 
-> **[CHÈN LƯU ĐỒ 3.5 TẠI ĐÂY]** Chuẩn bị input/manifest → warm-up từng phương án → ba lượt đo xoay thứ tự → thu metrics/plan → kiểm tra DuckDB → lọc run hợp lệ → tổng hợp median/mean/std. Đặt cạnh bảng run metadata và correctness audit của tier Standalone.
+Trình tự benchmark sau khi sửa runner là: chuẩn bị input và manifest → action warm-up từng phương án → ba lượt đo luân phiên thứ tự → thu metrics và plan cuối → đối soát DuckDB → lọc run hợp lệ → tổng hợp trung vị và độ phân tán. Event Log phải xác nhận job warm-up của từng phương án; không suy ra warm-up đã chạy chỉ vì source code có nhãn đó. Mỗi bước ghi nhận đường dẫn artifact để kết quả ở Chương 4 truy được về đúng run.
 
 ## 3.6. Phương pháp phân tích mật độ trả khách quanh ranh giới thu phí Manhattan
 
@@ -130,9 +150,9 @@ Diện tích tính từ polygon đã dissolve theo LocationID, sau khi chiếu s
 
 Gold hiện có map JSON Kepler.gl dạng `.gl` tại `data/gold/dropoff_density_by_zone_period.gl`, chứa hai polygon layer Daytime/Nighttime và dữ liệu zone-period nhúng. Bản đồ dùng các tỷ lệ density riêng của mỗi layer để tô màu tương tác; khi so sánh sắc độ giữa hai lớp nên chuyển sang shared scale trong Kepler UI hoặc dùng Figure 3.1 có chung P95 scale. Nguồn phương pháp, các giới hạn và tài liệu tham khảo được trình bày trong spatial research notes.
 
-### 3.7. Tổng kết chương
+## 3.7. Tổng kết chương
 
-Chương triển khai hai bài toán lệch tải trên Spark: aggregation ND2 và OD key-based join ND3. Selective/Uniform Salting đều bảo toàn kết quả theo DuckDB nhưng có wall time cao hơn baseline trên dải dữ liệu đã đo. AQE giảm TSR trong các run, nhưng final plan không thể hiện skew partition splitting; các run AQE đồng thời có memory/disk spill. Salting ND3 tạo overhead materialized từ 58.747 lên 83.646 OD rows tháng 01 (+24.899) và shuffle read cao hơn baseline. Phân tích mật độ drop-off cho thấy tập trung chuyến ban ngày cao ở nhóm south-reference; đây là mô tả theo Taxi Zone và không nhận diện quan hệ nhân quả với chính sách. Mọi kết luận hiệu năng giới hạn ở Spark 3.5.9, hai Worker, 200 shuffle partitions, năm tháng độc lập có quy mô gần nhau, ba lượt đo và pipeline tiền xử lý hiện tại.
+Chương triển khai hai bài toán lệch tải trên Spark: aggregation ND2 và OD key-based join ND3. Selective/Uniform Salting đều bảo toàn kết quả theo DuckDB nhưng có wall time cao hơn baseline trên dải dữ liệu đã đo. AQE giảm TSR trong các run, nhưng final plan không thể hiện skew partition splitting; các run AQE official cũ đồng thời có memory/disk spill. Salting ND3 tạo overhead materialized từ 58.747 lên 83.646 OD rows tháng 01 (+24.899) và shuffle read cao hơn baseline. Pilot S2 tích lũy 01–03 gồm 60.133.386 dòng được giữ riêng với chuỗi năm tháng độc lập; cả bốn nhánh ND3 trên S2 qua DuckDB, nhưng ba lượt trong một phiên chưa đủ suy ra quy luật tăng quy mô. Phân tích mật độ drop-off cho thấy tập trung chuyến ban ngày cao ở nhóm south-reference; đây là mô tả theo Taxi Zone và không nhận diện quan hệ nhân quả với chính sách. Mọi kết luận hiệu năng giới hạn ở Spark 3.5.9, hai Worker, 200 shuffle partitions, dữ liệu và pipeline tiền xử lý hiện tại.
 
 
 ## Danh sách artifact cần gắn khi hoàn thiện bản luận văn

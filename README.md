@@ -2,7 +2,7 @@
 
 **Một project dữ liệu lớn từ Raw đến benchmark phân tán và bản đồ Manhattan.** Project dùng dữ liệu chuyến xe công nghệ HVFHV của New York để nghiên cứu lệch tải trong Apache Spark, kiểm chứng kết quả bằng DuckDB và phân tích mô tả điểm trả khách theo Taxi Zone.
 
-> **Trạng thái đồ án:** bản báo cáo hiện có nội dung Chương 1–3. Artifact dữ liệu và benchmark chính đã được tạo; Chương 4 đang ở mức kế hoạch viết, Chương 5 chưa hoàn thiện.
+> **Trạng thái đồ án:** Chương 1–3 đã có artifacts; Chương 4 có bản thảo đầy đủ các mục 4.1–4.8; ND4 tháng 03 đã chạy toàn DAG Airflow thành công ngày 20/11/2026. Kết quả ND4 được lưu riêng, không trộn với chuỗi benchmark tháng 01–05 trước đó. Chương 5 chưa hoàn thiện.
 
 ## Bài toán
 
@@ -70,17 +70,35 @@ Gold tháng 01 phân loại 263 Taxi Zone thành 41 zone phía Nam, 23 phía B�
 
 - Fedora/Linux với Podman và `podman-compose`.
 - Project dependencies và dữ liệu đầu vào trong `data/`.
-- Với benchmark official: Spark Standalone 3.5.9, Master, hai Worker và Driver.
-- Môi trường container được mô tả trong [`docker-compose.yml`](docker-compose.yml), [`Dockerfile.spark`](Dockerfile.spark) và [`requirements-spark.txt`](requirements-spark.txt).
+- Với benchmark official: Spark Standalone 3.5.9, Master, hai Worker; Driver chạy trong container `spark-driver` hoặc Airflow service khi điều phối ND4.
+- Môi trường container được mô tả trong [`docker-compose.yml`](docker-compose.yml), [`Dockerfile.spark`](Dockerfile.spark), [`Dockerfile.airflow`](Dockerfile.airflow) và [`requirements-spark.txt`](requirements-spark.txt).
 
-### Khởi động cụm
+### Khởi động cụm Compose
 
 ```bash
-podman-compose up -d
+podman compose up -d --build
 podman ps -a
 ```
 
-Mở Spark Master UI tại [http://localhost:8080](http://localhost:8080) và xác nhận hai Worker đã đăng ký. Có thể chạy Pi smoke test từ Driver để kiểm tra cụm:
+Mở Spark Master UI tại [http://localhost:8080](http://localhost:8080) và xác nhận hai Worker đã đăng ký. Nếu Podman không tải được image từ Docker Hub, Compose sẽ chưa khởi động; kiểm tra DNS/TLS tới registry trước khi chạy lại.
+
+#### Chạy Spark Standalone trên host khi registry không truy cập được
+
+Project có PySpark 3.5.9 trong `.venv` và JDK 17 ở `/usr/lib/jvm/java-17`. Có thể dùng cụm host fallback:
+
+```bash
+scripts/chapter_04/start_spark_host_fallback.sh
+```
+
+Nó bật Master ở `spark://127.0.0.1:7077` và hai Worker, UI tại [http://localhost:8080](http://localhost:8080). Dừng bằng:
+
+```bash
+scripts/chapter_04/stop_spark_host_fallback.sh
+```
+
+Fallback này chạy các tiến trình trực tiếp trên host, không có giới hạn CPU/RAM cgroup của Compose và không được dùng làm kết quả benchmark official. Nó phù hợp để kiểm tra Spark hoặc chạy pilot có provenance riêng.
+
+Có thể chạy Pi smoke test từ Driver trong Compose để kiểm tra cụm:
 
 ```bash
 podman exec spark-driver /opt/spark/bin/spark-submit \
@@ -99,6 +117,24 @@ Pilot dùng cùng Silver tháng 01 với benchmark official; pilot chỉ giảm 
 python scripts/chapter_03/run_benchmark_nd2.py --mode pilot
 python scripts/chapter_03/run_benchmark_nd3.py --mode pilot
 ```
+
+Để kiểm tra thêm mốc Broadcast Hash Join trên cụm Compose, dùng `--include-broadcast` với runner ND3 ở chế độ pilot; `--pilot-iterations 3` chạy ba lượt và xoay thứ tự phương án. Nhánh này được ép bằng hint và không ghi vào các CSV `official_standalone`. Lần thử có kiểm chứng ngày 21/11/2026 cùng lệnh chạy và giới hạn diễn giải nằm tại [pilot ND3 Broadcast](chapters/03_pipeline_skew_benchmarks/docs/phase_b/pilot_nd3_broadcast_20261121.md).
+
+### Chạy ND4 bằng Airflow trên tháng 03/2026
+
+```bash
+podman compose up -d --build spark-master spark-worker-1 spark-worker-2 airflow-standalone
+podman exec airflow-standalone airflow dags unpause chapter4_nd4_march_2026_benchmark
+podman exec airflow-standalone airflow dags trigger chapter4_nd4_march_2026_benchmark
+```
+
+DAG chạy ND2 rồi ND3 tuần tự, thu Spark REST/Event Log, manifest và Worker evidence, sau đó đối soát bằng DuckDB. Lần chạy ND4 ngày 20/11/2026 có ba lượt đo/phương án; ND2 có action warm-up, ND3 cũ không tạo job warm-up. Runner ND3 đã được sửa ngày 21/11/2026 và có pilot riêng xác nhận warm-up hoạt động; kết quả ND4 cũ chưa được chạy lại. Bảng, biểu đồ và provenance của lần chạy đã hoàn tất nằm tại `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/`. Tạo lại gói tổng hợp sau một lần chạy mới bằng:
+
+```bash
+python scripts/chapter_04/build_nd4_march_artifacts.py --airflow-run-id <dag-run-id>
+```
+
+Airflow UI: [http://localhost:8085](http://localhost:8085). Kết quả lần chạy 20/11/2026 đã lưu tách biệt với các artifacts tháng 03 cũ.
 
 ### Chạy lại toàn bộ
 
@@ -130,9 +166,9 @@ Benchmark official và benchmark tháng 02–05 cần đúng volume, dependencie
 | **1 — Môi trường và khảo sát dữ liệu** | `scripts/chapter_02/02_preprocess_and_audit.py`; các audit/figure ở `scripts/chapter_02/` | Chưa có notebook riêng; quy trình chính chạy bằng script | Hình khảo sát ở `data/zones/`; cấu hình cụm ở `docker-compose.yml` |
 | **2 — Lệch tải trong aggregation** | `scripts/chapter_03/run_benchmark_nd2.py` và `benchmark_engine.py` | `notebooks/chapter_03/02_benchmark_aggregation_salting.ipynb` | Bảng, plan và hình benchmark ở `data/benchmarks/` |
 | **3 — Lệch tải trong join** | `scripts/chapter_03/run_benchmark_nd3.py`, `build_monthly_od_matrix.py` | `notebooks/chapter_03/03_benchmark_join_skew.ipynb` | Run CSV, DuckDB audit và execution plan ở `data/benchmarks/` |
-| **4 — Tự động hóa và đánh giá** | `scripts/chapter_04/build_chapter4_evidence.py`, `build_chapter4_figures.py` | Chưa có notebook riêng | Hình chèn báo cáo ở `docs/assets/chapter4/`; kết quả tổng hợp ở `data/benchmarks/chapter4_evidence/` |
+| **4 — Tự động hóa và đánh giá** | `dags/chapter4_march_benchmark.py`, `Dockerfile.airflow`, `scripts/chapter_04/build_nd4_march_artifacts.py` | Chưa có notebook riêng | DAG tháng 03 chạy thành công cả ba task; runs, audit, bảng, hình và provenance ở `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/` |
 
-> **Phạm vi hiện thực:** Nội dung 4 hiện có script tổng hợp bằng chứng đã lưu. DAG Airflow và lượt benchmark chính thức trên tháng 03/2026 chưa được triển khai/xác nhận; xem [bản đồ mã nguồn và artifact](docs/project_map_content_1_to_4.md) để phân biệt phần đã có với phần còn thiếu.
+> **Phạm vi hiện thực:** DAG Airflow tháng 03 chạy thành công ngày 20/11/2026 trên Compose với hai Worker; cả ba task của run `nd4-march-clean-20261120` đều `success`. Kết quả nằm ở `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/`, tách khỏi chuỗi monthly run cũ. Một lượt thử trước cần chạy lại bước đóng gói; lượt clean sau khi cập nhật image xác nhận toàn DAG. Xem [bản đồ mã nguồn và artifact](docs/project_map_content_1_to_4.md).
 
 Hình được chia theo mục đích: hình trình bày cố định nằm trong `docs/assets/`; hình sinh từ số liệu và bảng kiểm toán ở cạnh dữ liệu/kết quả trong `data/zones/`, `data/benchmarks/` hoặc `data/gold/`. Vị trí dữ liệu hiện tại được giữ nguyên.
 
@@ -141,6 +177,6 @@ Hình được chia theo mục đích: hình trình bày cố định nằm tron
 - Năm input tháng có quy mô gần nhau; chưa chứng minh xu hướng hiệu năng khi dữ liệu tăng nhiều lần.
 - Chưa có LightGBM/ML skew detector, SparkListener tùy biến hoặc phép đo mức sử dụng CPU/RAM cgroup theo từng application.
 - Spatial analysis dùng một tháng hậu chính sách và nhóm Taxi Zone theo ranh giới xấp xỉ; không thể suy ra tác động nhân quả của chính sách thu phí.
-- Airflow service có trong Compose nhưng thư mục `dags/` chưa có DAG; các workflow hiện chạy bằng scripts/CLI.
+- DAG ND4 đã chạy thành công trên Compose; run xác nhận clean hoàn tất cả ba task. Airflow UI ở cổng 8085. Chưa có SparkListener tùy biến hoặc số đo mức sử dụng CPU/RAM cgroup theo từng application. Docker Hub có thể gặp timeout lại; host fallback không tương đương Compose và không được gộp vào kết quả official.
 
 Xem [ghi chú đối chiếu nghiên cứu](chapters/research_alignment_notes.md) để biết project tham khảo CIBPartitioner, MFTune và nghiên cứu chính sách Zhang et al. ở phạm vi nào; project không tuyên bố đã triển khai các phương pháp đó.

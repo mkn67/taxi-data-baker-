@@ -6,7 +6,7 @@ Tài liệu này nối từng yêu cầu trong đề cương với mã nguồn, 
 
 | Thành phần | Đường dẫn | Vai trò/trạng thái |
 |---|---|---|
-| Cấu hình Spark Standalone và Airflow | `docker-compose.yml`, `Dockerfile.spark`, `requirements-spark.txt` | Khai báo Master, hai Worker, Driver và Airflow. Có cấu hình service Airflow; chưa có DAG benchmark trong `dags/`. |
+| Cấu hình Spark Standalone và Airflow | `docker-compose.yml`, `Dockerfile.spark`, `Dockerfile.airflow`, `requirements-spark.txt` | Khai báo Master, hai Worker, Driver và Airflow. Airflow image đã được bổ sung Java 17/PySpark để làm Spark Driver cho DAG ND4. |
 | Tiền xử lý Raw → Silver | `scripts/chapter_02/02_preprocess_and_audit.py` | Tạo Silver, audit lọc tuần tự và hotspot P95. |
 | Audit zone/phụ phí | `scripts/chapter_02/02b_zone_boundary_check.py`, `02c_audit_filter_duckdb.py`, `audit_cbd_congestion_fee.py`, `build_table_2_6.py` | Kiểm tra zone, lọc và phí CBD. |
 | Hình khảo sát | `scripts/chapter_02/plot_figure_2_4.py`–`plot_figure_2_8.py` | Sinh hình vào `data/zones/`. Hình 2.4 dùng Raw để mô tả phí; Hình 2.8 dùng Silver và kiểm tra khớp hotspot P95 đã lưu. |
@@ -41,13 +41,15 @@ Tài liệu này nối từng yêu cầu trong đề cương với mã nguồn, 
 
 | Thành phần | Đường dẫn | Vai trò/trạng thái |
 |---|---|---|
+| DAG benchmark tháng 03 | `dags/chapter4_march_benchmark.py` | Chạy ND2 rồi ND3 tuần tự; mỗi runner có một warm-up và ba lượt đo, thu REST/Event Log, worker/manifest và DuckDB audit. Run thành công 20/11/2026. |
+| Đóng gói bằng chứng ND4 | `scripts/chapter_04/build_nd4_march_artifacts.py` | Kiểm tra 18 dòng run, tạo bảng so sánh, biểu đồ thời gian và JSON provenance gắn với Airflow run ID. |
 | Tổng hợp bằng chứng Chương 4 | `scripts/chapter_04/build_chapter4_evidence.py` | Đọc CSV đã lưu, tính lại bảng và correctness summaries; không khởi chạy Spark. |
 | Vẽ kết quả | `scripts/chapter_04/build_chapter4_figures.py` | Sinh hình ND2/ND3 vào `data/benchmarks/` và bản dùng trong báo cáo vào `docs/assets/chapter4/`. |
-| Bản thảo | `chapters/04_results_tradeoffs/sections_4_1_to_4_4.md` | Diễn giải kết quả thực nghiệm hiện có. |
-| Airflow | `dags/` và service `airflow-standalone` trong Compose | Service được khai báo nhưng chưa có DAG benchmark. |
-| Tháng 03/2026 | `data/benchmarks/scaling/2026_03/` | Có artifacts tháng 03 đã lưu; việc có artifacts không chứng minh pipeline Airflow tự động chạy. |
+| Bản thảo | `chapters/04_results_tradeoffs/chapter4_results.md` | Có diễn giải kết quả cũ và ghi chú riêng cho lượt Airflow tháng 03. |
+| Airflow | `dags/chapter4_march_benchmark.py` và service `airflow-standalone` | DAG đã chạy success ngày 20/11/2026; log task được lưu dưới `logs/airflow/`. |
+| Tháng 03/2026 | `data/benchmarks/scaling/2026_03/` và `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/` | Thư mục đầu là monthly run cũ; thư mục sau là run ND4 Airflow mới, có application ID/provenance riêng. |
 
-**Phạm vi cần giữ rõ trong báo cáo:** chưa ghi rằng Airflow đã điều phối benchmark hoặc REST API/Listener đã thu telemetry của một lượt chạy tháng 03 nếu chưa có DAG và provenance tương ứng. Script hiện tại tổng hợp artifact, không thay thế bằng chứng chạy mới.
+**Phạm vi cần giữ rõ trong báo cáo:** Airflow DAG tháng 03 đã điều phối ND2/ND3 thành công một lần; REST API/Event Log thu telemetry, không có SparkListener tùy biến. Lượt này tách khỏi monthly run ngày 30/10 và chưa được dùng thay cho chuỗi hình so sánh 5 tháng.
 
 ## Quy ước vị trí ảnh và dữ liệu
 

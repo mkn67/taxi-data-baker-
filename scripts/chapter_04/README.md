@@ -1,14 +1,41 @@
-# Scripts Chương 4 — Tổng hợp kết quả
+# Scripts Chương 4 — Benchmark và tổng hợp kết quả
 
-`build_chapter4_evidence.py` đọc các CSV official Standalone đã lưu để tính lại các bảng ND2/ND3, DuckDB correctness tháng 01 và số lượt hợp lệ tháng 01–05. Script không chạy Spark và không sửa input artifacts.
+Thư mục gồm cả DAG orchestration và các script tổng hợp.
 
-`build_chapter4_figures.py` tạo các hình benchmark tháng 01 với median và min–max; bản dùng để chèn vào tài liệu được lưu trong `docs/assets/chapter4/`.
+## ND4 Airflow benchmark tháng 03/2026
 
-Chạy từ project root:
+DAG `dags/chapter4_march_benchmark.py` chạy ND2 rồi ND3 tuần tự trên Spark Standalone. Mỗi runner dùng một warm-up, ba lượt đo và đối soát DuckDB. Lượt xác nhận sạch `nd4-march-clean-20261120` chạy thành công cả ba task ngày 20/11/2026; kết quả nằm riêng ở `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/`.
+
+Có thể đóng gói lại bảng, hình và provenance cho một run đã hoàn thành bằng:
+
+```bash
+python scripts/chapter_04/build_nd4_march_artifacts.py --airflow-run-id <dag-run-id> --run-dir data/benchmarks/nd4_airflow/2026_03/<dag-run-id>
+```
+
+Script xác nhận đủ 9 dòng mỗi bài toán, ba lượt/phương án, collector `OK`, validation `PASS`, Spark 3.5.9 và hai Worker trước khi tạo các tệp tổng hợp.
+
+## Tổng hợp các kết quả official đã lưu
 
 ```bash
 python scripts/chapter_04/build_chapter4_evidence.py
 python scripts/chapter_04/build_chapter4_figures.py
+python scripts/chapter_04/build_chapter4_remaining.py
 ```
 
-Kết quả được ghi tại `data/benchmarks/chapter4_evidence/`. Bản thảo phân tích nằm trong `chapters/04_results_tradeoffs/sections_4_1_to_4_4.md`.
+- `build_chapter4_evidence.py`: bảng ND2/ND3 tháng 01, correctness DuckDB, OD key preflight và trạng thái benchmark theo tháng.
+- `build_chapter4_figures.py`: Hình 4.2 và 4.3 từ CSV cấp lượt đo tháng 01.
+- `build_chapter4_remaining.py`: kiểm tra benchmark official theo tháng, bảng ổn định và kết quả không gian.
+- Bảng tổng hợp Chương 4 nằm ở `data/benchmarks/chapter4_evidence/`; hình bản thảo ở `docs/assets/chapter4/`.
+- Bản thảo: `chapters/04_results_tradeoffs/chapter4_results.md`.
+
+Các script `build_chapter4_*` chỉ xử lý evidence đã lưu; chúng không thay thế một lần Spark benchmark mới.
+
+## Chạy cụm
+
+```bash
+podman compose up -d --build spark-master spark-worker-1 spark-worker-2 airflow-standalone
+podman exec airflow-standalone airflow dags unpause chapter4_nd4_march_2026_benchmark
+podman exec airflow-standalone airflow dags trigger chapter4_nd4_march_2026_benchmark
+```
+
+Cụm host fallback có tại `scripts/chapter_04/start_spark_host_fallback.sh`, nhưng không áp giới hạn cgroups Compose và không được gắn nhãn official.

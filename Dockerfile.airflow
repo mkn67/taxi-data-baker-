@@ -1,0 +1,17 @@
+# Airflow is the Spark driver for the benchmark DAGs. Keep the runtime aligned
+# with the Spark 3.5.9 workers declared in docker-compose.yml.
+FROM docker.io/apache/airflow:2.9.0-python3.10
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openjdk-17-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+USER airflow
+RUN pip install --no-cache-dir \
+    pyspark==3.5.9 \
+    duckdb==1.5.6 \
+    numpy==1.26.4 \
+    pandas==2.2.3 \
+    matplotlib==3.9.4

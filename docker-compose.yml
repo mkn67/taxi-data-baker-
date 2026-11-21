@@ -132,7 +132,10 @@ services:
         condition: service_started
 
   airflow-standalone:
-    image: docker.io/apache/airflow:2.9.0-python3.10
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    image: localhost/taxi-airflow-spark:2.9.0
     container_name: airflow-standalone
     hostname: airflow-standalone
     command: standalone
@@ -141,16 +144,26 @@ services:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "True"
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_DRIVER_HOST: airflow-standalone
+      SPARK_UI_URL: http://airflow-standalone:4040
+      SPARK_EXPECTED_VERSION: "3.5.9"
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
     ports:
       - "8085:8080"
-    cpus: 1.5
-    mem_limit: 2048m
+      - "4041:4040"
+    cpus: 2.0
+    mem_limit: 2560m
     stop_grace_period: 10s
     userns_mode: "keep-id:uid=50000,gid=0"
     volumes:
       - ./dags:/opt/airflow/dags:z
+      - ./scripts:/opt/airflow/scripts:ro,z
       - ./data:/opt/airflow/data:z
+      - ./data:/opt/spark/data:z
       - ./logs/airflow:/opt/airflow/logs:z
+      - ./logs/airflow/airflow.db:/opt/airflow/airflow.db:z
+      - ./logs/spark-events:/opt/airflow/logs/spark-events:z
     networks:
       - bigdata
 

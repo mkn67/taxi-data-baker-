@@ -36,7 +36,12 @@ def main():
     parser.add_argument("--mode", choices=["pilot", "full"], default="pilot", help="Benchmark mode (default: pilot; use full for official 3-iteration runs)")
     parser.add_argument("--master", default=None, help="Spark Master URL")
     parser.add_argument("--partitions", type=int, default=200, help="Shuffle partitions count")
+    parser.add_argument("--pilot-iterations", type=int, default=1, help="Measured iterations in pilot mode (default: 1); rotates method order")
     args = parser.parse_args()
+    if args.pilot_iterations < 1:
+        parser.error("--pilot-iterations must be at least 1.")
+    if args.mode == "full" and args.pilot_iterations != 1:
+        parser.error("--pilot-iterations applies only to pilot mode.")
 
     configure_environment()
     paths = resolve_paths()
@@ -47,7 +52,7 @@ def main():
     hotspot_pu_ids = load_hotspot_pu_ids(paths["hotspots_pu_path"])
     silver_manifest = dataset_manifest_fingerprint(paths["silver_path"])
 
-    num_iterations = 1 if args.mode == "pilot" else 3
+    num_iterations = args.pilot_iterations if args.mode == "pilot" else 3
     master_url = args.master or get_spark_master_url()
     require_standalone = args.mode == "full"
     if require_standalone and not master_url.startswith("spark://"):
@@ -92,7 +97,7 @@ def main():
     collector.end_run("warmup_sel")
     print(">>> Hoàn tất Warm-up!\n")
 
-    # 2. Official Runs
+    # 2. Measured runs (configurable pilot iterations or three official iterations)
     methods = [
         ("Baseline_GroupBy", lambda: aggregate_baseline(df_silver)),
         ("Uniform_Salting_S8", lambda: aggregate_uniform_salting(df_silver, num_salts=8)),

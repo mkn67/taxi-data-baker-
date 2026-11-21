@@ -2,7 +2,7 @@
 """CLI Runner for Nội dung 3: Join Skew Benchmark (NYC HVFHV 2026).
 
 Usage:
-  python3 scripts/chapter_03/run_benchmark_nd3.py [--mode {pilot,full}] [--master <url>] [--partitions <num>]
+  python3 scripts/chapter_03/run_benchmark_nd3.py [--mode {pilot,full}] [--master <url>] [--partitions <num>] [--include-broadcast] [--pilot-iterations <num>]
 """
 
 import argparse
@@ -23,6 +23,7 @@ from scripts.chapter_03.benchmark_engine import (
     SparkMetricsCollector,
     load_hotspot_pu_ids,
     join_baseline_smj,
+    join_broadcast_reference,
     join_aqe_skew,
     join_salting,
     verify_join_with_duckdb,
@@ -45,7 +46,15 @@ def main():
     parser.add_argument("--mode", choices=["pilot", "full"], default="pilot", help="Benchmark mode (default: pilot; use full for official 3-iteration runs)")
     parser.add_argument("--master", default=None, help="Spark Master URL")
     parser.add_argument("--partitions", type=int, default=200, help="Shuffle partitions count")
+    parser.add_argument("--include-broadcast", action="store_true", help="Add an explicit Broadcast Hash Join reference in pilot mode")
+    parser.add_argument("--pilot-iterations", type=int, default=1, help="Measured iterations in pilot mode (default: 1); rotates method order")
     args = parser.parse_args()
+    if args.include_broadcast and args.mode != "pilot":
+        parser.error("--include-broadcast is restricted to pilot mode; official three-method results stay separate.")
+    if args.pilot_iterations < 1:
+        parser.error("--pilot-iterations must be at least 1.")
+    if args.mode == "full" and args.pilot_iterations != 1:
+        parser.error("--pilot-iterations applies only to pilot mode.")
 
     configure_environment()
     paths = resolve_paths()
@@ -58,7 +67,7 @@ def main():
     silver_manifest = dataset_manifest_fingerprint(paths["silver_path"])
     od_manifest = dataset_manifest_fingerprint(paths["od_matrix_path"])
 
-    num_iterations = 1 if args.mode == "pilot" else 3
+    num_iterations = args.pilot_iterations if args.mode == "pilot" else 3
     master_url = args.master or get_spark_master_url()
     require_standalone = args.mode == "full"
     if require_standalone and not master_url.startswith("spark://"):
@@ -117,25 +126,33 @@ def main():
     # 1. Warm-up
     print(">>> Giai đoạn Warm-up...")
     collector.start_run("warmup_join_base", "Warmup Baseline SMJ")
-    materialize_join_result(join_baseline_smj(spark, df_trips, df_od))
+    materialize_join_result(join_baseline_smj(spark, df_trips, df_od)).collect()
     collector.end_run("warmup_join_base")
 
     collector.start_run("warmup_join_aqe", "Warmup AQE")
-    materialize_join_result(join_aqe_skew(spark, df_trips, df_od, skew_factor=2, skew_threshold_mb=16))
+    materialize_join_result(join_aqe_skew(spark, df_trips, df_od, skew_factor=2, skew_threshold_mb=16)).collect()
     collector.end_run("warmup_join_aqe")
 
     collector.start_run("warmup_join_salt", "Warmup Salting")
-    materialize_join_result(join_salting(spark, df_trips, df_od, hotspot_pu_ids, num_salts=8))
+    materialize_join_result(join_salting(spark, df_trips, df_od, hotspot_pu_ids, num_salts=8)).collect()
     collector.end_run("warmup_join_salt")
+    if args.include_broadcast:
+        collector.start_run("warmup_join_broadcast", "Warmup Broadcast reference")
+        materialize_join_result(join_broadcast_reference(spark, df_trips, df_od)).collect()
+        collector.end_run("warmup_join_broadcast")
     print(">>> Hoàn tất Warm-up!\n")
 
-    # 2. Official Runs
+    # 2. Measured runs (configurable pilot iterations or three official iterations)
     methods_join = [
         ("Baseline_SMJ", lambda: join_baseline_smj(spark, df_trips, df_od)),
         ("Spark_AQE_Skew_Join", lambda: join_aqe_skew(spark, df_trips, df_od, skew_factor=2, skew_threshold_mb=16)),
         ("Salting_Join_S8", lambda: join_salting(spark, df_trips, df_od, hotspot_pu_ids, num_salts=8)),
     ]
+    if args.include_broadcast:
+        methods_join.append(("Broadcast_Hash_Join_Reference", lambda: join_broadcast_reference(spark, df_trips, df_od)))
     orders_join = [[0, 1, 2], [1, 2, 0], [2, 0, 1]]
+    if args.include_broadcast:
+        orders_join = [[(position + shift) % 4 for position in range(4)] for shift in range(4)]
 
     all_join_runs = []
     final_join_results = {}

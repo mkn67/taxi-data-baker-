@@ -1,10 +1,12 @@
 # Chương 4 — Kết quả thực nghiệm và phân tích đánh đổi
 
-[**Kế hoạch hoàn thiện Chương 4 theo mục 4.1–4.8**](plan_chuong_4.md)
+[**Kế hoạch và trạng thái Chương 4 theo mục 4.1–4.8**](plan_chuong_4.md)
 
-[**Bản thảo các mục 4.1–4.4 từ official artifacts**](sections_4_1_to_4_4.md)
+[**Bản thảo đầy đủ các mục 4.1–4.8 từ official artifacts**](chapter4_results.md)
 
-Tính lại các bảng ND2/ND3, DuckDB audit và trạng thái run bằng `python scripts/chapter_04/build_chapter4_evidence.py`; tạo Hình 4.2 và Hình 4.4 bằng `python scripts/chapter_04/build_chapter4_figures.py`.
+Dựng lại các bảng/hình từ artifacts đã lưu bằng ba script trong `scripts/chapter_04/`: `build_chapter4_evidence.py`, `build_chapter4_figures.py` và `build_chapter4_remaining.py`. Các script này không khởi chạy Spark; chúng không tạo benchmark mới. Xem `scripts/chapter_04/README.md` để biết đầu ra và lệnh chạy.
+
+ND4 đã chạy hoàn chỉnh trên Podman Compose ngày 20/11/2026. Run xác nhận `nd4-march-clean-20261120` có cả ba task Airflow ở trạng thái `success`; ND2 có action warm-up, còn ND3 cũ không tạo job warm-up dù có đoạn mã mang tên này. Mỗi phương án có ba lượt đo. Runner ND3 đã được sửa ngày 21/11/2026, nhưng kết quả ND4 ngày 20/11 chưa được chạy lại. Run CSV, audit, bảng tổng hợp, hình và provenance nằm ở `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/`. Một lượt thử trước cần chạy lại bước đóng gói do image cũ thiếu Matplotlib; lượt xác nhận sau khi dựng image mới chạy tự động toàn DAG.
 
 Kế hoạch phân biệt artifacts đã có với phần cần viết/đối chiếu. Các điều chỉnh chính: mục 4.5 trình bày tính ổn định qua năm tháng độc lập, không gọi là scaling; ML chuyển thành hướng phát triển Chương 5; mục spatial/trade-offs/tổng kết lần lượt là 4.6–4.8. Cgroups hiện mới có giới hạn cấu hình, chưa có số liệu usage runtime; không có SparkListener tùy biến.
 

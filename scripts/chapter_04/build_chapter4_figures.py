@@ -10,11 +10,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shutil
+from matplotlib.ticker import FuncFormatter
 
 ROOT = Path(__file__).resolve().parents[2]
 BENCH = ROOT / "data/benchmarks"
 ASSETS = ROOT / "docs/assets/chapter4"
 MIB = 1024 * 1024
+
+
+def format_vietnamese_number(value: float, decimals: int = 2) -> str:
+    """Format numbers with dot thousands separators and comma decimals."""
+    return f"{value:,.{decimals}f}".replace(",", "§").replace(".", ",").replace("§", ".")
 
 
 def load_summary(path: Path, methods: list[str], shuffle: str) -> pd.DataFrame:
@@ -55,7 +61,7 @@ def bar(ax, labels: list[str], values: np.ndarray, title: str, ylabel: str, colo
     ax.set_ylim(0, top * 1.27)
     for rect, value in zip(bars, values):
         ax.text(rect.get_x() + rect.get_width()/2, rect.get_height() + top*.025,
-                f"{value:.2f}", ha="center", va="bottom", fontsize=8, fontweight="bold")
+                format_vietnamese_number(value), ha="center", va="bottom", fontsize=8, fontweight="bold")
 
 
 def plot_nd2() -> Path:
@@ -69,7 +75,7 @@ def plot_nd2() -> Path:
     errors = np.vstack([med - df.minimum.to_numpy(float), df.maximum.to_numpy(float) - med])
     axes[0, 0].bar(x, med, color=colors, edgecolor="#333333", linewidth=.6)
     axes[0, 0].errorbar(x, med, yerr=errors, fmt="none", ecolor="#222222", capsize=4, linewidth=1)
-    axes[0, 0].set_title("Thời gian toàn phần: trung vị và min–max")
+    axes[0, 0].set_title("Thời gian thực thi toàn phần: trung vị và khoảng nhỏ nhất–lớn nhất")
     axes[0, 0].set_ylabel("Giây")
     axes[0, 0].set_xticks(x, labels)
     for ax, vals, title, ylabel in [
@@ -79,9 +85,10 @@ def plot_nd2() -> Path:
     ]:
         bar(ax, labels, vals, title, ylabel, colors)
     for ax in axes.flat:
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: format_vietnamese_number(x)))
         ax.grid(axis="y", alpha=.25)
         ax.set_axisbelow(True)
-    fig.suptitle("Hình 4.2 — Kết quả ND2 trên cụm Spark Standalone, Silver tháng 01/2026\n3 lượt đo; thanh sai số biểu thị min–max", fontsize=12, fontweight="bold")
+    fig.suptitle("Kết quả ND2 trên cụm Spark Standalone, Silver tháng 01/2026\n3 lượt đo; thanh sai số biểu thị khoảng nhỏ nhất–lớn nhất", fontsize=12, fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, .92])
     path = BENCH / "figure_4_2_nd2_aggregation_official.png"
     fig.savefig(path, dpi=180, bbox_inches="tight")
@@ -102,7 +109,7 @@ def plot_nd3() -> Path:
     errors = np.vstack([med - df.minimum.to_numpy(float), df.maximum.to_numpy(float) - med])
     axes[0, 0].bar(x, med, color=colors, edgecolor="#333333", linewidth=.6)
     axes[0, 0].errorbar(x, med, yerr=errors, fmt="none", ecolor="#222222", capsize=4, linewidth=1)
-    axes[0, 0].set_title("Thời gian toàn phần: trung vị và min–max")
+    axes[0, 0].set_title("Thời gian thực thi toàn phần: trung vị và khoảng nhỏ nhất–lớn nhất")
     axes[0, 0].set_ylabel("Giây")
     axes[0, 0].set_xticks(x, labels)
     for ax, vals, title, ylabel in [
@@ -123,13 +130,14 @@ def plot_nd3() -> Path:
     for bars in (b1, b2):
         for rect in bars:
             ax.text(rect.get_x()+rect.get_width()/2, rect.get_height()+top*.02,
-                    f"{rect.get_height():.1f}", ha="center", va="bottom", fontsize=8)
+                    format_vietnamese_number(rect.get_height(), 1), ha="center", va="bottom", fontsize=8)
     for ax in axes.flat:
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda x, _: format_vietnamese_number(x)))
         ax.grid(axis="y", alpha=.25)
         ax.set_axisbelow(True)
-    fig.suptitle("Hình 4.4 — Kết quả ND3 trên cụm Spark Standalone, Silver tháng 01/2026\n3 lượt đo; thanh sai số biểu thị min–max", fontsize=12, fontweight="bold")
+    fig.suptitle("Kết quả ND3 trên cụm Spark Standalone, Silver tháng 01/2026\n3 lượt đo; thanh sai số biểu thị khoảng nhỏ nhất–lớn nhất", fontsize=12, fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, .92])
-    path = BENCH / "figure_4_4_nd3_join_official.png"
+    path = BENCH / "figure_4_3_nd3_join_official.png"
     fig.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(fig)
     ASSETS.mkdir(parents=True, exist_ok=True)
