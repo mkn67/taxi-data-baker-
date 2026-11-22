@@ -2,26 +2,28 @@
 
 ## Phạm vi
 
-Chương 4 báo cáo kết quả đo được và phân tích đánh đổi, còn định nghĩa phương pháp nằm ở Chương 3. Bản thảo chính là [`chapter4_results.md`](chapter4_results.md), gồm các mục 4.1–4.8. Số liệu tháng 01 và lần chạy Airflow tháng 03 được trình bày tách biệt; các tháng 01–05 là input độc lập, không phải benchmark dữ liệu tích lũy.
+Chương 4 báo cáo kết quả đo được và phân tích đánh đổi, còn định nghĩa phương pháp nằm ở Chương 3. Bản thảo chính là [`chapter4_results.md`](chapter4_results.md), gồm các mục 4.1–4.8. Số liệu tháng 01 và lần chạy Airflow tháng 03 được trình bày tách biệt. Benchmark tháng 01–05 là các input độc lập; ngoài ra ND3 đã có tier tích lũy S1/S2/S3, trong đó S1/S2 là pilot và S3 là official. Không gộp hai kiểu phạm vi này.
 
 ## Trạng thái theo mục
 
 | Mục | Nội dung đã có | Nguồn bằng chứng / giới hạn |
 |---|---|---|
-| **4.1 Thiết lập và đo lường** | Cấu hình Podman Compose, Master/2 Worker/Driver, biến kiểm soát, warm-up, ba lượt đo, REST API/Event Log, manifest và cách đọc TSR/PSR. | Cấu hình CPU/RAM là giới hạn khai báo; không có phép đo `cpu.stat`, memory peak/current theo application, SparkListener tùy biến hay network throughput. |
+| **4.1 Thiết lập và đo lường** | Cấu hình Podman Compose, Master/2 Worker/Driver, biến kiểm soát, warm-up, ba lượt đo, REST API/Event Log, manifest và cách đọc TSR/PSR. | S3 official có host/cgroup telemetry lấy mẫu đủ 9/9 cửa sổ; các lượt cũ không có bộ telemetry đồng nhất. Không có CPU/I/O attribution theo stage, SparkListener tùy biến hay network throughput vật lý. |
 | **4.2 ND2 Aggregation** | Baseline, Uniform Salting và Selective Salting; thời gian trung vị và khoảng nhỏ nhất–lớn nhất, TSR/PSR, shuffle/spill và diễn giải P95. | Bảng/Hình 4.2 dùng official tháng 01, application `app-20261103153557-0001`. Kết quả ND4 tháng 03 được trình bày riêng ở Bảng 4.12. |
-| **4.3 ND3 Shuffle Join** | Baseline SMJ, AQE, Salting Join; task metrics, final plan, spill và OD replication overhead. | Bảng 4.4, Hình 4.3 và các kế hoạch thực thi dùng official tháng 01, application `app-20261103153727-0002`. AQE có coalescing nhưng không có bằng chứng skew-specific split trong plan đã lưu. ND4 tháng 03 ở Bảng 4.12. |
+| **4.3 ND3 Shuffle Join** | Baseline SMJ, AQE, Salting Join; task metrics, final plan, spill, OD replication và tier S3 tích lũy. FlowJoin++ gợi ý thêm một đối chứng vận hành Spark tự chọn chiến lược join, không hint. | Tháng 01 dùng application `app-20261103153727-0002`; S3 official dùng `app-20261121180448-0005`, 9/9 lượt OK/PASS. AQE coalesce nhưng không split skew. Phiên auto-strategy `app-20261122074817-0000` bổ sung Bảng 4.15/Hình 4.8: 12/12 OK/PASS, hai Worker, cùng S3 manifest; ba auto plans đều BroadcastHashJoin, telemetry đủ 12/12 cửa sổ. ND4 tháng 03 ở Bảng 4.12. |
 | **4.4 Kiểm chứng** | DuckDB audit ND2/ND3, preflight tính duy nhất khóa OD, cách diễn giải 90 dòng metadata theo 5 tháng. | `PASS` của 3 iteration cùng phương án là trạng thái validation cấp phương án được gắn vào metadata, không phải ba phép audit độc lập. |
-| **4.5 Tính ổn định theo tháng** | Raw/Silver tách riêng; trung vị và khoảng nhỏ nhất–lớn nhất 5 tháng và giới hạn suy rộng. | Silver khoảng 19,05–21,09 triệu dòng (dải hẹp); tháng là các bộ riêng, thời điểm chạy khác nhau. Không gọi là scaling test. |
+| **4.5 So sánh phạm vi dữ liệu** | Raw/Silver tách riêng; kết quả 5 tháng độc lập và tier tích lũy S1/S2/S3 được phân biệt. | Các tháng riêng lẻ có dải Silver hẹp; S1/S2 là pilot, S3 là official. Kết quả mô tả ba tier, chưa chứng minh quy luật scaling tổng quát. |
 | **4.6 Phân tích không gian** | Gold tháng 01, so sánh south/north trong cùng khung giờ, bản đồ tĩnh và Kepler.gl, đối chiếu bối cảnh và giới hạn mô tả. | Nhóm toàn Gold: 41 phía Nam, 23 phía Bắc, 5 mơ hồ, 194 ngoài Manhattan. Đây là nhóm phân tích theo đường xấp xỉ, không phải nhãn CRZ chính thức; không suy luận nhân quả. |
 | **4.7 Trade-offs** | Bảng ma trận quyết định cho Baseline, Salting, AQE và Salting Join; tách bằng chứng khỏi giả thuyết CPU tax/GC/FinOps. | Không kết luận CPU, GC, network hay chi phí cloud khi chưa có telemetry tương ứng. |
 | **4.8 Tổng kết** | Tổng hợp kết quả, điều kiện thí nghiệm và giới hạn suy rộng. | LightGBM/ML chưa triển khai, chỉ có thể nêu là hướng phát triển ở Chương 5. |
 
 ## ND4 — Airflow benchmark tháng 03/2026
 
-Lượt xác nhận sạch có run ID `nd4-march-clean-20261120`, hoàn tất ngày 20/11/2026. DAG `chapter4_nd4_march_2026_benchmark` chạy tuần tự ND2 rồi ND3, sau đó kiểm định và đóng gói kết quả. Cả ba task Airflow đều có trạng thái `success`. ND2 dùng application `app-20261120074816-0006`; ND3 dùng `app-20261120074935-0007`. ND2 có action warm-up; ND3 cũ không tạo job warm-up (xác nhận bằng Event Log, runner đã sửa ngày 21/11/2026). Mỗi phương án có ba lượt đo; 18 dòng run đều có collector `OK`, DuckDB validation `PASS`, Spark 3.5.9 và bằng chứng hai Worker.
+Một lượt xác nhận sạch có run ID `nd4-march-clean-20261120`, hoàn tất ngày 20/11/2026. DAG `chapter4_nd4_march_2026_benchmark` chạy tuần tự ND2 rồi ND3, sau đó kiểm định và đóng gói kết quả. Cả ba task Airflow đều có trạng thái `success`. ND2 dùng application `app-20261120074816-0006`; ND3 dùng `app-20261120074935-0007`. ND2 có action warm-up; ND3 cũ không tạo job warm-up (xác nhận bằng Event Log, runner đã sửa ngày 21/11/2026). Mỗi phương án có ba lượt đo; 18 dòng run đều có collector `OK`, DuckDB validation `PASS`, Spark 3.5.9 và bằng chứng hai Worker.
 
 Artifacts của lượt xác nhận nằm tại `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/`: run CSV, summary/audit CSV, hình thời gian và provenance JSON. Một lượt Airflow trước đó cần chạy lại thủ công task đóng gói do container cũ thiếu Matplotlib; lượt xác nhận sạch sau khi dựng image mới chạy toàn DAG, không chạy task thủ công.
+
+Hai phiên tái lập ngày 22/11/2026 dùng runner có action warm-up ND3, cùng manifest Silver tháng 03: `nd4-march-repeat-20261122` và `nd4-march-repeat2-20261122`. Cả 6 task thành công và 36/36 dòng đo `OK/PASS`. Kết quả và giới hạn dao động nằm trong `nd4_reproducibility_20261122.md`; lượt 20/11 được báo riêng vì giao thức ND3 khác.
 
 ## Lệnh tái lập
 
@@ -45,12 +47,13 @@ Các script `build_chapter4_evidence.py`, `build_chapter4_figures.py` và `build
 ## Giới hạn cần giữ trong bản nộp
 
 - Cụm benchmark gồm nhiều container trên cùng host, không đại diện trực tiếp cho cụm nhiều máy qua mạng vật lý.
-- Giới hạn CPU/RAM cấu hình trong Compose không phải usage thực tế; chưa có cgroup telemetry theo application.
+- Giới hạn CPU/RAM Compose là cấu hình, không phải usage. S3 official và phiên auto-strategy có host/cgroup telemetry; các phiên tháng độc lập/ND4 cũ chưa có bộ đo tương ứng.
 - Không có SparkListener tùy biến; metric hiện dùng Spark REST API và Event Log.
-- Năm tháng Silver có quy mô gần nhau; chưa có benchmark scaling ở mức tăng nhiều lần hoặc trên tập tích lũy.
+- Năm tháng Silver độc lập có quy mô gần nhau. Các tier S1–S3 tích lũy đã có artifact nhưng khác phiên/pilot/official; chưa xác lập quy luật scaling tổng quát.
 - Các lượt n=3 dùng median và min–max để mô tả, không kết luận ý nghĩa thống kê.
 - Gold dùng dữ liệu tháng 01 và đường tham chiếu 60th Street xấp xỉ; kết quả không xác định tác động nhân quả của chính sách thu phí.
 - Không tuyên bố đã triển khai LightGBM, CIBPartitioner, MFTune, hay ML skew detection.
+- Flow-Join++ là nghiên cứu tham khảo về dự đoán heavy hitter/cardinality và tối ưu distributed join. Project không triển khai Scardina hoặc Heavy Hitter Push-Down; nhánh Spark auto-strategy đã chạy là đối chứng triển khai, được báo riêng với benchmark ba nhánh official trước đó.
 
 ## Checklist bàn giao
 
@@ -58,6 +61,11 @@ Các script `build_chapter4_evidence.py`, `build_chapter4_figures.py` và `build
 - [x] Bảng/hình ND2 và ND3 tháng 01 được tạo từ official run artifacts.
 - [x] So sánh ổn định theo tháng dùng run-level CSV, tách Raw và Silver, nêu rõ giới hạn quy mô.
 - [x] DuckDB audits, worker evidence, plans và manifest được giữ cùng nguồn kết quả.
-- [x] ND4 tháng 03 chạy Airflow end-to-end sạch; bảng, biểu đồ và provenance được tạo tự động.
+- [x] ND4 tháng 03 có một lần Airflow end-to-end sạch; bảng, biểu đồ và provenance được tạo tự động.
+- [x] Lặp lại DAG ND4 hai phiên ngày 22/11 trên cùng manifest với runner có action warm-up cho ND2 và ND3: 6/6 task success, 36/36 dòng OK/PASS, hai Worker. Biên bản `nd4_reproducibility_20261122.md` ghi riêng median từng phiên và các PSR `NA`.
 - [x] Bảng spatial và ma trận quyết định có số liệu/giới hạn rõ ràng.
-- [x] Các giới hạn về cgroup, Listener, scaling, địa lý và suy luận nhân quả được nêu trong bản thảo.
+- [x] Các giới hạn về telemetry, Listener, scaling, địa lý và suy luận nhân quả được nêu trong bản thảo.
+- [x] Kết quả S3 ND3 official và OD replication đã được đưa vào bản thảo Chương 4.
+- [x] Đã chạy đối chứng Spark auto-strategy S3 `app-20261122074817-0000`: bốn nhánh × ba lượt sau warm-up, 12/12 OK/PASS, đúng manifest, hai Worker, 12 plans, đủ telemetry. Bảng 4.15 và Hình 4.8 dùng riêng phiên này; xem biên bản `flowjoin_auto_strategy_20261122.md`.
+
+- [x] Bổ sung kiểm toán tần suất/fanout theo cặp OD sau benchmark; phân biệt pickup P95 với P95 OD chẩn đoán và với mô hình heavy hitter của Flow-Join++.

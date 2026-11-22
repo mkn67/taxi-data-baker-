@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import matplotlib
@@ -95,6 +96,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--airflow-run-id", required=True)
     parser.add_argument("--run-dir", type=Path, default=RUN_DIR)
+    parser.add_argument("--publish-figure", action="store_true",
+                        help="Copy this run's figure into the chapter draft asset path")
+    parser.add_argument("--run-date", default=datetime.now(timezone.utc).date().isoformat())
+    parser.add_argument("--nd3-no-warmup", action="store_true",
+                        help="Document legacy ND3 runs whose warm-up built a plan but ran no Spark action")
     args = parser.parse_args()
     run_dir = args.run_dir.resolve()
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -106,6 +112,12 @@ def main() -> None:
     frames = {key: pd.read_csv(path) for key, path in source_files.items()}
     for key, frame in frames.items():
         validate_run(frame, key)
+    input_manifests = {
+        "ND2": set(frames["ND2"]["dataset_manifest_sha256"].dropna().astype(str)),
+        "ND3": set(frames["ND3"]["trip_dataset_manifest_sha256"].dropna().astype(str)),
+    }
+    if len(input_manifests["ND2"]) != 1 or input_manifests["ND2"] != input_manifests["ND3"]:
+        raise ValueError(f"ND2 and ND3 must use the same single Silver manifest: {input_manifests}")
 
     summary_rows = []
     app_ids, manifests, workers = {}, {}, {}
@@ -152,22 +164,26 @@ def main() -> None:
         for i, value in enumerate(med):
             ax.text(i, value, format_vietnamese_number(value), ha="center", va="bottom", fontsize=8)
     fig.suptitle("Kết quả ND2 và ND3 trên dữ liệu tháng 03/2026 — trung vị và khoảng nhỏ nhất–lớn nhất của 3 lượt đo")
-    fig.text(.5, .01, "Một warm-up không tính vào số đo; cùng cụm Spark Standalone, Spark 3.5.9.",
+    warmup_label = ("ND2 có warm-up; ND3 chưa có action warm-up; Spark Standalone 3.5.9."
+                    if args.nd3_no_warmup else
+                    "ND2 và ND3 có action warm-up; Spark Standalone 3.5.9.")
+    fig.text(.5, .01, warmup_label,
              ha="center", fontsize=8)
     fig.tight_layout(rect=[0, .04, 1, .93])
     fig.savefig(figure_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
-    ASSETS.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(figure_path, ASSETS / "figure_4_4_nd4_airflow.png")
+    if args.publish_figure:
+        ASSETS.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(figure_path, ASSETS / "figure_4_4_nd4_airflow.png")
 
     run_manifest = {
         "dag_id": "chapter4_nd4_march_2026_benchmark",
         "dag_run_id": args.airflow_run_id,
-        "run_date": "2026-11-20",
+        "run_date": args.run_date,
         "benchmark_input_month": "2026-03",
         "result_tier": "official_standalone",
         "benchmark_mode": "full",
-        "warmups_per_method": 1,
+        "warmups_per_method": {"ND2": 1, "ND3": 0 if args.nd3_no_warmup else 1},
         "measured_iterations_per_method": 3,
         "spark_version": "3.5.9",
         "spark_master": "spark://spark-master:7077",

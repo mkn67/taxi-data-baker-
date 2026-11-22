@@ -2,7 +2,7 @@
 """CLI Runner for Nội dung 3: Join Skew Benchmark (NYC HVFHV 2026).
 
 Usage:
-  python3 scripts/chapter_03/run_benchmark_nd3.py [--mode {pilot,full}] [--master <url>] [--partitions <num>] [--include-broadcast] [--pilot-iterations <num>]
+  python3 scripts/chapter_03/run_benchmark_nd3.py [--mode {pilot,full}] [--master <url>] [--partitions <num>] [--include-broadcast] [--include-auto-broadcast] [--pilot-iterations <num>]
 """
 
 import argparse
@@ -24,6 +24,7 @@ from scripts.chapter_03.benchmark_engine import (
     load_hotspot_pu_ids,
     join_baseline_smj,
     join_broadcast_reference,
+    join_auto_strategy_reference,
     join_aqe_skew,
     join_salting,
     verify_join_with_duckdb,
@@ -47,10 +48,15 @@ def main():
     parser.add_argument("--master", default=None, help="Spark Master URL")
     parser.add_argument("--partitions", type=int, default=200, help="Shuffle partitions count")
     parser.add_argument("--include-broadcast", action="store_true", help="Add an explicit Broadcast Hash Join reference in pilot mode")
+    parser.add_argument("--include-auto-broadcast", action="store_true", help="Add an unhinted Spark auto-strategy comparison arm")
     parser.add_argument("--pilot-iterations", type=int, default=1, help="Measured iterations in pilot mode (default: 1); rotates method order")
     args = parser.parse_args()
     if args.include_broadcast and args.mode != "pilot":
         parser.error("--include-broadcast is restricted to pilot mode; official three-method results stay separate.")
+    if args.include_auto_broadcast and args.include_broadcast:
+        parser.error("Use either --include-broadcast or --include-auto-broadcast, not both.")
+    if args.include_auto_broadcast and args.mode != "full":
+        parser.error("--include-auto-broadcast is reserved for a full Standalone comparison run.")
     if args.pilot_iterations < 1:
         parser.error("--pilot-iterations must be at least 1.")
     if args.mode == "full" and args.pilot_iterations != 1:
@@ -91,6 +97,8 @@ def main():
     tier_suffix = "official_standalone" if require_standalone else (
         "local_functional" if spark.sparkContext.master.startswith("local") else "pilot_standalone"
     )
+    if args.include_auto_broadcast:
+        tier_suffix += "_auto_strategy_comparison"
     plans_dir = os.path.join(paths["plans_dir"], tier_suffix)
     os.makedirs(plans_dir, exist_ok=True)
     collector = SparkMetricsCollector(spark)
@@ -140,6 +148,10 @@ def main():
         collector.start_run("warmup_join_broadcast", "Warmup Broadcast reference")
         materialize_join_result(join_broadcast_reference(spark, df_trips, df_od)).collect()
         collector.end_run("warmup_join_broadcast")
+    if args.include_auto_broadcast:
+        collector.start_run("warmup_join_auto_strategy", "Warmup Spark auto-strategy reference")
+        materialize_join_result(join_auto_strategy_reference(spark, df_trips, df_od)).collect()
+        collector.end_run("warmup_join_auto_strategy")
     print(">>> Hoàn tất Warm-up!\n")
 
     # 2. Measured runs (configurable pilot iterations or three official iterations)
@@ -150,9 +162,12 @@ def main():
     ]
     if args.include_broadcast:
         methods_join.append(("Broadcast_Hash_Join_Reference", lambda: join_broadcast_reference(spark, df_trips, df_od)))
+    if args.include_auto_broadcast:
+        methods_join.append(("Spark_AutoJoin_Reference", lambda: join_auto_strategy_reference(spark, df_trips, df_od)))
     orders_join = [[0, 1, 2], [1, 2, 0], [2, 0, 1]]
-    if args.include_broadcast:
-        orders_join = [[(position + shift) % 4 for position in range(4)] for shift in range(4)]
+    if args.include_broadcast or args.include_auto_broadcast:
+        orders_join = [[(position + shift) % len(methods_join) for position in range(len(methods_join))]
+                       for shift in range(len(methods_join))]
 
     all_join_runs = []
     final_join_results = {}

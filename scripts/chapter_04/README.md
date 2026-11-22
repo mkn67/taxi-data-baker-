@@ -6,6 +6,8 @@ Thư mục gồm cả DAG orchestration và các script tổng hợp.
 
 DAG `dags/chapter4_march_benchmark.py` chạy ND2 rồi ND3 tuần tự trên Spark Standalone. Mỗi runner dùng một warm-up, ba lượt đo và đối soát DuckDB. Lượt xác nhận sạch `nd4-march-clean-20261120` chạy thành công cả ba task ngày 20/11/2026; kết quả nằm riêng ở `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/`.
 
+Hai phiên lặp cùng giao thức warm-up ngày 22/11/2026 là `nd4-march-repeat-20261122` và `nd4-march-repeat2-20261122`; xem `chapters/04_results_tradeoffs/nd4_reproducibility_20261122.md`. Lượt 20/11 dùng runner ND3 cũ chưa thực hiện action warm-up, nên được báo riêng.
+
 Có thể đóng gói lại bảng, hình và provenance cho một run đã hoàn thành bằng:
 
 ```bash
@@ -13,6 +15,7 @@ python scripts/chapter_04/build_nd4_march_artifacts.py --airflow-run-id <dag-run
 ```
 
 Script xác nhận đủ 9 dòng mỗi bài toán, ba lượt/phương án, collector `OK`, validation `PASS`, Spark 3.5.9 và hai Worker trước khi tạo các tệp tổng hợp.
+Hình của từng phiên được giữ trong thư mục run. Chỉ thêm `--publish-figure` khi muốn chủ động thay Hình 4.4 của bản thảo bằng hình của phiên đó.
 
 ## Tổng hợp các kết quả official đã lưu
 

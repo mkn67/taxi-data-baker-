@@ -794,6 +794,23 @@ def join_broadcast_reference(spark: SparkSession, df_trips: DataFrame, df_od: Da
     )
 
 
+def join_auto_strategy_reference(
+    spark: SparkSession,
+    df_trips: DataFrame,
+    df_od: DataFrame,
+    broadcast_threshold_bytes: int = 10 * 1024 * 1024,
+) -> DataFrame:
+    """Run an unhinted join with Spark's configured automatic strategy selection.
+
+    This is an operational comparison arm, not a FlowJoin++ implementation.
+    The threshold is made explicit so the selected physical plan is reproducible.
+    """
+    spark.conf.set("spark.sql.adaptive.enabled", "false")
+    spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "false")
+    spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(broadcast_threshold_bytes))
+    return df_trips.join(df_od, ["PULocationID", "DOLocationID"], "inner")
+
+
 def join_aqe_skew(
     spark: SparkSession,
     df_trips: DataFrame,

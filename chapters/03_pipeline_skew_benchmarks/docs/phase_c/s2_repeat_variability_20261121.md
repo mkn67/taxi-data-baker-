@@ -71,3 +71,7 @@ This is evidence of AQE coalescing, not skew-partition splitting. Broadcast rema
 - Reproduction/analysis code: `scripts/chapter_03/analyze_nd3_scaling_evidence.py`.
 
 **Decision:** keep S3 blocked for now. The repeat narrows within-session ranges but leaves a large shift between S2 sessions, with no host-level CPU/throttling or storage-wait evidence to attribute it. Do not combine the two sessions into one median or infer stable scaling. A further experiment should first control or measure host-level conditions; no multi-factor ablation is opened by this result. No DOCX was changed.
+
+**Cập nhật sau phiên thứ ba:** Đã chạy thêm S2 với lấy mẫu host/cgroup; kết quả, giới hạn lấy mẫu và quyết định cổng S3 ở [s2_host_checked_20261121.md](s2_host_checked_20261121.md). Biên bản này tiếp tục mô tả riêng phiên repeat, không thay bằng số của phiên mới.
+
+**Cập nhật sau phiên S2 kiểm soát đầy đủ:** `app-20261121171337-0001` có 12/12 lượt OK/PASS, 12/12 cửa sổ host/cgroup, run provenance, plans, task metrics và DuckDB audit. Xem [s2_controlled_20261122.md](s2_controlled_20261122.md). Phiên repeat chậm vẫn được giữ lại và nguyên nhân chưa xác định; quyết định mới chỉ cho mở S3 pilot thăm dò có telemetry, chưa mở benchmark S3 official.
