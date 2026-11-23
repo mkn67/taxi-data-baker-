@@ -62,7 +62,7 @@ python scripts/chapter_04/build_chapter4_evidence.py
 python scripts/chapter_04/build_chapter4_figures.py
 ```
 
-Các bảng được ghi vào `data/benchmarks/chapter4_evidence/`. Bản thảo mục 4.1–4.4 nằm tại `chapters/04_results_tradeoffs/sections_4_1_to_4_4.md`.
+Các bảng được ghi vào `data/benchmarks/chapter4_evidence/`. Bản thảo mục 4.1–4.4 nằm tại `chapters/04_results_tradeoffs/manuscript/chapter4_results.md`.
 
 Các script Chương 4 hiện đọc và tổng hợp artifacts đã lưu; chúng không điều phối Spark bằng Airflow và không khởi chạy benchmark mới. Trạng thái DAG được ghi tại `dags/README.md`.
 

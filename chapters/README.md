@@ -20,3 +20,13 @@ Các thư mục `01`–`05` gom bản thảo và chỉ mục bằng chứng theo
 - `dags/`: Airflow DAG; `logs/`: log thực thi.
 
 Không di chuyển các đường dẫn dữ liệu/script trên khi chưa cập nhật cấu hình trong mã và compose.
+
+
+## Quy ước bên trong thư mục chương
+
+- `manuscript/`: nội dung dùng để biên tập và đưa vào báo cáo.
+- `planning/`: kế hoạch, checklist và phạm vi công việc.
+- `evidence/`: biên bản chạy, provenance và bằng chứng hỗ trợ kết quả.
+- `docs/`: audit, ghi chú nghiên cứu và nhật ký các giai đoạn triển khai.
+
+Không sao chép dữ liệu benchmark dung lượng lớn vào các thư mục chương; dữ liệu và hình dùng chung vẫn ở `data/` và `docs/assets/`.

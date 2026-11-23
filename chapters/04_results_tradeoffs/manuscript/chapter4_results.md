@@ -2,9 +2,7 @@
 
 Chương này trình bày kết quả thực nghiệm và phân tích các đánh đổi hiệu năng của quy trình xử lý dữ liệu. Mục 4.1 mô tả môi trường và quy trình đo; mục 4.2 và 4.3 lần lượt phân tích hai bài toán ND2 (tổng hợp dữ liệu) và ND3 (kết nối phân tán); mục 4.4 kiểm chứng tính đúng đắn bằng DuckDB; mục 4.5 xem xét độ ổn định qua các tập dữ liệu tháng độc lập và kết quả tự động hóa ND4; mục 4.6 trình bày ứng dụng không gian mô tả của tầng Gold tại Manhattan; cuối cùng, mục 4.7 tổng hợp khuyến nghị kỹ thuật và mục 4.8 kết luận chương.
 
-Các bảng benchmark báo cáo trung vị và khoảng nhỏ nhất–lớn nhất của ba lượt đo. ND2 official tháng 01 và ND3 official S3 có action warm-up; các lượt ND3 tháng 01–05 cũ và lượt ND4 ngày 20/11 không có job warm-up thực thi cho ND3, nên được phân biệt khi diễn giải. Chương tách benchmark từng tháng độc lập khỏi các tier tích lũy S1–S3; riêng S3 ND3 đã có kết quả official trên Silver tích lũy tháng 01–05. Quy ước trình bày số: dấu phẩy là dấu thập phân, dấu chấm phân tách hàng nghìn; dung lượng dùng MiB (1 MiB = 1.048.576 byte).
-
-Câu hỏi được xem xét trong chương là: **trong workload tổng hợp và kết nối dữ liệu taxi đã đo, các lựa chọn Baseline, salting, AQE và chiến lược join do Spark tự chọn liên hệ thế nào với thời gian thực thi, mức lệch task và lượng dữ liệu shuffle?** Phân tích trả lời trong phạm vi cấu hình, dữ liệu và các phiên thực nghiệm đã lưu.
+Các bảng benchmark báo cáo trung vị và khoảng nhỏ nhất–lớn nhất theo từng phiên. Câu hỏi chính của phần mở rộng Phase C là **khi nào salting cải thiện phép nối bị lệch tải, và khi nào SMJ cơ sở, AQE hoặc chiến lược do Spark tự chọn đã đủ?** Phiên S3 ghép cặp 10 block trả lời cho workload NYC tích lũy. Lưới dữ liệu tổng hợp kiểm tra riêng ảnh hưởng của độ lệch khóa, kích thước bảng chiều và cấu hình. Quy ước trình bày dùng dấu phẩy cho phần thập phân, dấu chấm để nhóm hàng nghìn và 1 MiB = 1.048.576 byte.
 
 ## 4.1. Thiết lập môi trường và quy trình đo lường thực nghiệm
 
@@ -25,9 +23,9 @@ Thực nghiệm dùng cụm Apache Spark Standalone gồm Master, hai Worker và
 
 *Nguồn: cấu hình dịch vụ trong `docker-compose.yml` và siêu dữ liệu ứng dụng Spark của các lượt benchmark được báo cáo.*
 
-Các giá trị ở Bảng 4.1 là giới hạn được khai báo cho container và dung lượng Worker được cấp phép; đây không phải số liệu sử dụng CPU hay bộ nhớ đo trong từng ứng dụng. Metadata của cả S3 official (9/9 lượt) và S3 mở rộng (12/12 lượt) ghi nhận hai executor thực cấp, một core và 1.500 MiB cho mỗi executor, phân bố trên hai Worker. Vì vậy, `spark.cores.max=4` là mức trần được yêu cầu, không phải bốn core đã được cấp. Ở các lượt benchmark tháng 01, log ghi executor được cấp hai lõi và 1 GiB bộ nhớ. Airflow là dịch vụ phụ trợ, không tham gia thực thi task Spark; tuy nhiên, dịch vụ này cùng chia sẻ tài nguyên của máy chủ. Nghiên cứu không thu thập mức sử dụng CPU/bộ nhớ theo thời gian hoặc thông lượng mạng, vì vậy không dùng các giới hạn khai báo để suy ra mức tiêu thụ thực tế. Do hai Worker chạy trên cùng máy vật lý, kết quả cũng không đại diện trực tiếp cho cụm Spark nhiều máy giao tiếp qua mạng vật lý.
+Các giá trị ở Bảng 4.1 là giới hạn được khai báo cho container và dung lượng Worker được cấp phép; đây không phải số liệu sử dụng CPU hay bộ nhớ đo trong từng ứng dụng. Metadata của cả S3 official (9/9 lượt) và S3 mở rộng (12/12 lượt) ghi nhận hai executor thực cấp, một core và 1.500 MiB cho mỗi executor, phân bố trên hai Worker. Vì vậy, `spark.cores.max=4` là mức trần được yêu cầu, không phải bốn core đã được cấp. Ở các lượt benchmark tháng 01, log ghi executor được cấp hai lõi và 1 GiB bộ nhớ. Airflow là dịch vụ phụ trợ, không tham gia thực thi task Spark; tuy nhiên, dịch vụ này cùng chia sẻ tài nguyên của máy chủ. Các giới hạn khai báo ở bảng này không dùng để suy ra mức sử dụng tài nguyên hay thông lượng mạng thực tế. Do hai Worker chạy trên cùng máy vật lý, kết quả cũng không đại diện trực tiếp cho cụm Spark nhiều máy giao tiếp qua mạng vật lý.
 
-![Hình 4.1 — Kiến trúc cụm Spark phục vụ thực nghiệm](../../docs/assets/chapter4/figure_4_1_spark_topology.png)
+![Hình 4.1 — Kiến trúc cụm Spark phục vụ thực nghiệm](../../../docs/assets/chapter4/figure_4_1_spark_topology.png)
 
 *Nguồn: Tác giả tổng hợp từ cấu hình cụm thực nghiệm. Driver gửi ứng dụng đến Master; Master cấp phát tài nguyên thực thi cho hai Worker. Spark REST API và Event Log cung cấp thông tin về tiến trình chạy, stage và task.*
 
@@ -53,17 +51,25 @@ Trong mỗi bài toán, dữ liệu đầu vào, kiểu phép toán, số phân 
 
 *Nguồn: cấu hình benchmark và mã triển khai ND2/ND3 của đồ án; ba nhánh chính được lưu trong artifact `official_standalone`, nhánh tham chiếu S3 nằm trong artifact `flowjoin_auto_strategy_20261122T074810Z`.*
 
-Mỗi phương án có ba lượt đo, với thứ tự được luân phiên giữa các lượt. ND2 có một job warm-up cho từng phương án; kiểm tra Event Log ND3 cũ không thấy job thuộc các nhóm warm-up, dù mã runner có đoạn mang tên này. Kết quả được tóm tắt bằng trung vị và khoảng từ giá trị nhỏ nhất đến lớn nhất. Việc luân phiên thứ tự giảm khả năng một phương án luôn chạy đầu hoặc cuối, nhưng không thay thế warm-up. Với ba lượt đo, các thống kê này chỉ mô tả kết quả quan sát được.
+Các phiên benchmark ban đầu dùng ba lượt mỗi phương án và luân phiên thứ tự giữa các lượt. ND2 có một job warm-up cho từng phương án; kiểm tra Event Log ND3 cũ không thấy job thuộc các nhóm warm-up, dù mã runner có đoạn mang tên này. Kết quả được tóm tắt bằng trung vị và khoảng từ giá trị nhỏ nhất đến lớn nhất. Việc luân phiên thứ tự giảm khả năng một phương án luôn chạy đầu hoặc cuối, nhưng không thay thế warm-up. Với ba lượt đo, các thống kê này chỉ mô tả kết quả quan sát được.
 
 ### 4.1.3. Quy trình warm-up, đo lặp và thu thập số liệu
 
-Quy trình mong muốn bắt đầu bằng một action warm-up trên cùng dữ liệu, sau đó chạy phép toán cần đo trong một nhóm công việc riêng (job group). Thời gian từ lúc bắt đầu nhóm đến khi action tính kết quả hoàn tất được gọi là thời gian thực thi toàn phần (wall-clock time). Bộ thu thập lấy thời lượng tác vụ (task), số lượng bản ghi và dữ liệu shuffle từ Spark REST API và Event Log; shuffle là lượng dữ liệu trao đổi giữa các phân vùng, còn spill là dữ liệu trung gian phải ghi ra bộ nhớ hoặc đĩa. Cuối cùng, runner lưu cấu hình, application ID, manifest đầu vào, Worker evidence và kế hoạch thực thi vật lý. Kiểm tra Event Log cho ND3 chính thức tháng 01–05 và lượt ND4 ngày 20/11 không thấy job warm-up: mã trước ngày 21/11/2026 gọi hàm dựng DataFrame mà thiếu action. Runner hiện đã được sửa để gọi `collect()`; phiên S3 mở rộng và hai phiên ND4 ngày 22/11 dùng runner đã sửa. Do đó, thời gian ND3 cũ phải được hiểu là các lượt đo **không có warm-up thực thi** và không gộp với pilot sau sửa.
+Quy trình chuẩn bắt đầu bằng một action warm-up trên cùng dữ liệu, sau đó chạy phép toán cần đo trong một nhóm công việc riêng (job group). Thời gian từ lúc bắt đầu nhóm đến khi action tính kết quả hoàn tất được gọi là thời gian thực thi toàn phần (wall-clock time). Bộ thu thập lấy thời lượng tác vụ (task), số lượng bản ghi và dữ liệu shuffle từ Spark REST API và Event Log; shuffle là lượng dữ liệu trao đổi giữa các phân vùng, còn spill là dữ liệu trung gian phải ghi ra bộ nhớ hoặc đĩa. Cuối cùng, runner lưu cấu hình, application ID, manifest đầu vào, Worker evidence và kế hoạch thực thi vật lý. Kiểm tra Event Log cho ND3 chính thức tháng 01–05 và lượt ND4 ngày 20/11 không thấy job warm-up: mã trước ngày 21/11/2026 gọi hàm dựng DataFrame mà thiếu action. Runner hiện đã được sửa để gọi `collect()`; phiên S3 mở rộng và hai phiên ND4 ngày 22/11 dùng runner đã sửa. Do đó, thời gian ND3 cũ phải được hiểu là các lượt đo **không có warm-up thực thi** và không gộp với pilot sau sửa.
 
 Các chỉ số TSR và PSR, công thức tính, quy tắc chọn stage và cách xử lý giá trị không khả dụng được định nghĩa tại mục 3.1.3; mục này áp dụng nguyên các quy ước đó. Vì TSR/PSR được tính trên các task thuộc stage được chọn, các tỷ số này mô tả độ phân tán công việc trong stage đó, không thay thế thời gian thực thi toàn phần. Lượng shuffle và spill trong bảng được cộng qua các stage hoàn tất thuộc job group tương ứng. Bộ thu thập dùng Spark REST API và Event Log, không có SparkListener tùy biến. Telemetry host/cgroup có đủ cửa sổ cho S3 official ba nhánh (9/9 lượt) và phiên đối chứng bốn nhánh (12/12 lượt); các lượt cũ không có phép đo tương ứng. Hiện chưa có attribution CPU/I/O theo stage hoặc đo thông lượng mạng vật lý. JVM GC time có trong Event Log nhưng không phải chỉ số tổng hợp chính của các bảng.
 
 Lượt xác nhận ND4 được điều phối bằng DAG Airflow `chapter4_nd4_march_2026_benchmark` theo thứ tự ND2 rồi ND3. Mã lượt chạy Airflow và ID ứng dụng Spark được ghi tại Bảng 4.12 để kết quả có thể truy nguyên. Cả ba task benchmark, kiểm định và đóng gói của lượt xác nhận đều hoàn tất thành công.
 
-Một lượt đo chỉ được giữ trong tập kết quả hợp lệ khi bộ thu thập hoàn tất và kiểm tra tính đúng đắn trả về `PASS`. Manifest nhận diện phiên bản đầu vào bằng tên tương đối, kích thước và thời điểm sửa đổi của các tệp Parquet; nó giúp xác định tập tệp đã dùng nhưng không phải mã kiểm tra toàn bộ nội dung tệp.
+Một lượt đo hợp lệ cần bộ thu thập hoàn tất và kiểm tra tính đúng đắn cấp phương án trả về `PASS`. Theo giao thức Phase C, lỗi môi trường được ghi riêng với lý do loại trừ. OOM hoặc timeout do phương án trong ngân sách tài nguyên được giữ như kết quả không khả thi. Manifest nhận diện phiên bản đầu vào bằng tên tương đối, kích thước và thời điểm sửa đổi của các tệp Parquet; nó giúp xác định tập tệp đã dùng nhưng không phải mã kiểm tra toàn bộ nội dung tệp.
+
+### 4.1.4. Giao thức đo và phân tích Phase C
+
+Đơn vị phân tích là block ghép cặp. Trong mỗi block, bốn phương án dùng cùng manifest và thứ tự chạy được xáo trộn với seed 20261123. Phiên S3 có một action warm-up riêng cho mỗi phương án, sau đó chạy đủ 10 block theo giới hạn đã định. Lưới tổng hợp dùng năm block mỗi ô. Các phiên ba lượt trước đó tiếp tục được đọc như kết quả mô tả.
+
+Chỉ tiêu chính là wall-time. Trong phiên S3, tỷ số thời gian được tính theo từng block với Baseline SMJ, rồi lấy trung vị của 10 tỷ số. Khoảng tin cậy (KTC) 95% dùng bootstrap ghép cặp với 10.000 lần lấy mẫu lại theo block. Kiểm định hoán dấu chính xác dùng giá trị p hiệu chỉnh Holm cho ba so sánh với SMJ. Ngưỡng chênh lệch thực hành δ = 5% áp dụng cho đồ án. Một phương án được ghi nhận nhanh hơn hoặc chậm hơn rõ theo ngưỡng này khi toàn bộ KTC của tỷ số nằm dưới 0,95 hoặc trên 1,05. Trường hợp còn lại được ghi là chưa phân định theo δ.
+
+Dữ liệu Event Log được ghép theo job group và thời điểm đo. Tổng `executorRunTime` cộng thời lượng của các task thực thi song song và có thể lớn hơn wall-time. `executorCpuTime` đo thời gian CPU của executor khi metric có sẵn. Thời gian JVM GC được báo riêng, không cộng thêm vào tổng thời gian task. Các job đối soát sau lượt đo nằm ngoài cửa sổ này. Phiên S3 10 block thiếu chuỗi telemetry host/cgroup liên tục, nên các trị số task chỉ mô tả công việc được Spark ghi nhận. Chi tiết thiết kế được lưu trong [giao thức Phase C](../../03_pipeline_skew_benchmarks/docs/phase_c/implementation_protocol_v1.md).
 
 ## 4.2. Kết quả thực nghiệm trên phép toán tổng hợp dữ liệu
 
@@ -105,7 +111,7 @@ Kế hoạch thực thi vật lý thể hiện khác biệt về số bước: B
 
 Kết quả Airflow ND4 trên Silver tháng 03 được trình bày riêng ở Bảng 4.12; không gộp vào số liệu ND2 tháng 01 trong Bảng 4.3 hoặc Hình 4.2.
 
-![Hình 4.2 — Kết quả benchmark ND2](../../docs/assets/chapter4/figure_4_2_nd2_aggregation_official.png)
+![Hình 4.2 — Kết quả benchmark ND2](../../../docs/assets/chapter4/figure_4_2_nd2_aggregation_official.png)
 
 *Hình 4.2. Thời gian thực thi toàn phần và lượng dữ liệu ghi shuffle được so sánh cùng TSR/PSR của stage được chọn. Thanh sai số ở biểu đồ thời gian thể hiện nhỏ nhất–lớn nhất của ba lượt đo. Nguồn: kết quả benchmark ND2 tháng 01/2026, ứng dụng Spark `app-20261103153557-0001`.*
 
@@ -113,7 +119,7 @@ Kết quả Airflow ND4 trên Silver tháng 03 được trình bày riêng ở B
 
 ### 4.3.1. So sánh thời gian thực thi
 
-ND3 là phép nối trong (inner join) giữa bảng chuyến đi và bảng chiều OD theo cặp mã vùng đón–trả `(PULocationID, DOLocationID)`. Đây là phép nối theo khóa, không phải phép nối không gian dựa trên giao cắt hay khoảng cách giữa các đa giác. Ba phương án chính gồm Sort-Merge Join cơ sở (Baseline SMJ), Sort-Merge Join có AQE và Salting Join S=8. Ngoài ra, một phiên mở rộng so sánh thêm nhánh tham chiếu Spark tự chọn chiến lược join, không hint, trên cùng manifest S3; kết quả được trình bày riêng ở mục 4.7 vì application và thời điểm đo khác với S3 official ba nhánh. Bảng 4.4 đặt kết quả official tháng 01 cạnh tier S3 tích lũy; mỗi phương án có ba lượt đo, nhưng phiên tháng 01 không có warm-up thực thi còn S3 có warm-up. Vì thế các nhóm được so sánh mô tả riêng theo phạm vi, không gộp lượt. Tháng 01 chạy trong ứng dụng `app-20261103153727-0002`; S3 ba nhánh dùng application `app-20261121180448-0005`; phiên mở rộng bốn nhánh dùng `app-20261122074817-0000` và cùng fingerprint đầu vào S3.
+ND3 là phép nối trong (inner join) giữa bảng chuyến đi và bảng chiều OD theo cặp mã vùng đón–trả `(PULocationID, DOLocationID)`. Đây là phép nối theo khóa, không phải phép nối không gian dựa trên giao cắt hay khoảng cách giữa các đa giác. Ba phương án chính gồm Sort-Merge Join cơ sở (Baseline SMJ), Sort-Merge Join có AQE và Salting Join S=8. Ngoài ra, một phiên mở rộng so sánh thêm nhánh tham chiếu Spark tự chọn chiến lược join, không hint, trên cùng manifest S3; kết quả được trình bày riêng ở mục 4.7 vì application và thời điểm đo khác với S3 official ba nhánh. Bảng 4.4 đặt kết quả official tháng 01 cạnh tier S3 tích lũy; mỗi phương án có ba lượt đo, nhưng phiên tháng 01 không có warm-up thực thi còn S3 có warm-up. Vì thế các nhóm được so sánh mô tả riêng theo phạm vi, không gộp lượt. Tháng 01 chạy trong ứng dụng `app-20261103153727-0002`; S3 ba nhánh dùng application `app-20261121180448-0005`; phiên mở rộng bốn nhánh dùng `app-20261122074817-0000` và cùng fingerprint đầu vào S3. Kết quả so sánh chính của Phase C đến từ phiên 10 block ngày 23/11, trình bày ở mục 4.7.2.
 
 **Bảng 4.4. Kết quả ND3 official theo hai phạm vi dữ liệu**
 
@@ -204,7 +210,7 @@ Sau các lượt chính thức, pilot ngày 21/11/2026 chạy thêm nhánh Broad
 
 Ở tháng 01, AQE có median thấp nhất nhưng phát sinh spill; ở S3, spill bằng 0 và AQE chỉ coalesce, không có skew-specific split. Salting có runtime và Shuffle Read cao hơn Baseline trong cả hai phạm vi đã đo, đồng thời tăng số dòng OD sau replication. Đây là kết quả của cấu hình và các phiên cụ thể, không khẳng định mọi workload đều bất lợi cho salting.
 
-![Hình 4.3 — Kết quả benchmark ND3](../../docs/assets/chapter4/figure_4_3_nd3_join_official.png)
+![Hình 4.3 — Kết quả benchmark ND3](../../../docs/assets/chapter4/figure_4_3_nd3_join_official.png)
 
 *Hình 4.3. Thời gian thực thi toàn phần, TSR, lượng dữ liệu đọc shuffle và spill của ba phương án. Thanh sai số ở biểu đồ thời gian thể hiện nhỏ nhất–lớn nhất của ba lượt đo. Nguồn: kết quả benchmark ND3 tháng 01/2026, ứng dụng Spark `app-20261103153727-0002`.*
 
@@ -240,6 +246,8 @@ Các giá trị ND2 trong Bảng 4.9 là sai khác tuyệt đối lớn nhất t
 Trước phép nối, bảng OD có 58.747 dòng và 58.747 cặp khóa `(PULocationID, DOLocationID)` phân biệt; không có khóa null hoặc trùng. Điều kiện này bảo đảm mỗi cặp chuyến đi khớp tối đa một dòng OD trước khi áp dụng salting. Với Salting Join, số dòng sau khi nhân bản được tính đầy đủ và đếm là 83.646, đúng bằng số dự kiến. Mỗi lượt đo cũng lưu đường dẫn Silver/OD và manifest nhận diện tệp Parquet theo tên tương đối, kích thước và thời điểm sửa đổi. Manifest giúp nhận diện tập đầu vào nhưng không phải checksum nội dung.
 
 Phạm vi kiểm chứng cần được hiểu theo cách runner tạo audit. Trong mỗi ứng dụng, runner giữ kết quả Spark của lượt đo cuối cùng cho từng phương án, đối chiếu kết quả đó với DuckDB một lần, rồi gán trạng thái kiểm chứng của phương án vào metadata của cả ba lượt. Do đó, audit theo vùng/cặp borough ở mục này kiểm tra một kết quả tổng hợp cho mỗi phương án; trạng thái `PASS` lặp lại ở ba dòng metadata không phải ba lần đối soát DuckDB độc lập. Riêng tháng 01, có sáu kết quả phương án được đối soát chi tiết: ba phương án ND2 và ba phương án ND3; cả sáu đều đạt dung sai. Ở S3 ND3 official, 9/9 lượt ghi collector `OK` và DuckDB `PASS`; kết quả dùng manifest riêng, không cộng vào audit tháng 01–05. Phiên S3 mở rộng có bốn phương án và 12/12 dòng run ghi collector `OK`; DuckDB `PASS` được kiểm tra một lần ở cấp phương án rồi gắn vào ba iteration của phương án đó, không phải 12 lần audit độc lập. Cả bốn phương án dùng cùng fingerprint Silver/OD; 12 final plan và worker evidence được lưu cùng artifact phiên. Nhánh Spark tự chọn khớp 101.263.728 chuyến với 63.572 khóa OD duy nhất, không có khóa null/trùng hoặc chuyến không khớp.
+
+Trong phiên Phase C S3 ngày 23/11, cả 40 lượt có collector `OK` và đủ 40 final plan. Bốn audit DuckDB cấp phương án đều `PASS` trên cùng manifest Silver/OD. Lưới tổng hợp v3 và phép thử độ nhạy lần lượt có 240 và 60 dòng `OK/PASS`; trạng thái kiểm chứng vẫn được gắn từ audit cấp phương án của từng ô hoặc cấu hình.
 
 Trong năm tháng dữ liệu, mỗi bài toán có 45 dòng metadata đo lường (ba phương án × ba lượt × năm tháng), tổng cộng 90 dòng cho ND2 và ND3. Cả 90 dòng đều ghi bộ thu thập số liệu `OK` và trạng thái kiểm chứng cấp phương án là `PASS`; không có dòng nào bị loại khỏi bảng tổng hợp theo hai trạng thái này. Con số 90/90 mô tả trạng thái của các dòng metadata, không phải 90 phép đối soát DuckDB độc lập. Các dòng của ND4 Airflow tháng 03 không nằm trong 90 dòng theo tháng này; ND4 có thêm 18 dòng riêng ở lượt `nd4-march-clean-20261120`, đều `OK`/`PASS`.
 
@@ -280,7 +288,7 @@ Các lượt benchmark đều ghi nhận Spark 3.5.9, hai Worker hoạt động 
 
 Bên cạnh các lượt benchmark theo tháng, ND4 được thực hiện riêng trên Silver tháng 03 bằng Airflow Compose ngày 20/11/2026. Bảng 4.12 và Hình 4.4 sử dụng lượt xác nhận sạch `nd4-march-clean-20261120`; chúng không thay thế điểm tháng 03 ngày 30/10 trong Hình 4.5 và Hình 4.6. Mỗi bài toán có 9 dòng đo (3 phương án × 3 lượt). Cả 18 dòng đều ghi bộ thu thập số liệu `OK`, kiểm chứng DuckDB `PASS`, phiên bản Spark 3.5.9 và bằng chứng hai Worker. Cả ba task trong DAG đều kết thúc thành công. DuckDB đối soát một lần cho kết quả cuối của mỗi phương án; trạng thái được gắn vào ba dòng lượt đo của phương án đó, không phải 18 audit độc lập. Lượt ngày 20/11 được trình bày riêng vì runner ND3 khi đó chưa thực hiện action warm-up.
 
-Để kiểm tra tính tái lập sau khi sửa action warm-up ND3, DAG chạy thêm hai phiên ngày 22/11/2026: `nd4-march-repeat-20261122` và `nd4-march-repeat2-20261122`. Cả 6/6 task Airflow thành công; 36/36 dòng metadata ghi `collector_status=OK` và `validation_status=PASS`, cùng manifest Silver tháng 03 và bằng chứng hai Worker. Trạng thái PASS phản ánh audit DuckDB ở cấp kết quả phương án trong từng phiên, không phải 36 phép audit độc lập. ND2 giữ thứ tự trung vị Baseline < Selective < Uniform ở cả hai phiên. ND3 Baseline có trung vị thấp nhất ở cả hai; AQE và Salting đổi thứ tự với chênh lệch nhỏ ở phiên đầu. Mỗi phiên có CSV, hình và provenance riêng; không gộp các lượt thành một median. Ba lượt ND2 có PSR không khả dụng (một ở phiên đầu, hai ở phiên sau) và được giữ `NA`. Biên bản [kiểm tra tái lập ND4](nd4_reproducibility_20261122.md) ghi đủ trung vị, min–max và ứng dụng Spark của từng phiên.
+Để kiểm tra tính tái lập sau khi sửa action warm-up ND3, DAG chạy thêm hai phiên ngày 22/11/2026: `nd4-march-repeat-20261122` và `nd4-march-repeat2-20261122`. Cả 6/6 task Airflow thành công; 36/36 dòng metadata ghi `collector_status=OK` và `validation_status=PASS`, cùng manifest Silver tháng 03 và bằng chứng hai Worker. Trạng thái PASS phản ánh audit DuckDB ở cấp kết quả phương án trong từng phiên, không phải 36 phép audit độc lập. ND2 giữ thứ tự trung vị Baseline < Selective < Uniform ở cả hai phiên. ND3 Baseline có trung vị thấp nhất ở cả hai; AQE và Salting đổi thứ tự với chênh lệch nhỏ ở phiên đầu. Mỗi phiên có CSV, hình và provenance riêng; không gộp các lượt thành một median. Ba lượt ND2 có PSR không khả dụng (một ở phiên đầu, hai ở phiên sau) và được giữ `NA`. Biên bản [kiểm tra tái lập ND4](../evidence/nd4_reproducibility_20261122.md) ghi đủ trung vị, min–max và ứng dụng Spark của từng phiên.
 
 **Bảng 4.12. Kết quả benchmark ND4 qua Airflow trên Silver tháng 03/2026**
 
@@ -297,7 +305,7 @@ Bên cạnh các lượt benchmark theo tháng, ND4 được thực hiện riên
 
 Ở lượt này, Baseline ND2 có trung vị thời gian thấp nhất; hai nhánh salting giảm PSR so với Baseline nhưng tăng thời gian và shuffle. Với ND3, AQE có TSR và PSR thấp nhất nhưng phát sinh spill; Salting Join có shuffle và trung vị thời gian thực thi toàn phần cao nhất. Khoảng nhỏ nhất–lớn nhất của Baseline ND3 rộng do một lượt kéo dài; ba lượt chỉ hỗ trợ mô tả run này, không phải kiểm định ý nghĩa thống kê.
 
-![Hình 4.4 — Thời gian ND2 và ND3 trong lần chạy Airflow tháng 03](../../docs/assets/chapter4/figure_4_4_nd4_airflow.png)
+![Hình 4.4 — Thời gian ND2 và ND3 trong lần chạy Airflow tháng 03](../../../docs/assets/chapter4/figure_4_4_nd4_airflow.png)
 
 *Hình 4.4. Trung vị và khoảng nhỏ nhất–lớn nhất của ba lượt đo cho mỗi phương án trong ND4, thực hiện ngày 20/11/2026. Nguồn: CSV cấp lượt đo tại `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/`; tệp truy nguyên tại `nd4_march_2026_airflow_provenance.json`.*
 
@@ -314,13 +322,13 @@ Bên cạnh các lượt benchmark theo tháng, ND4 được thực hiện riên
 
 Hình 4.5 và Hình 4.6 thể hiện trung vị cùng khoảng nhỏ nhất–lớn nhất của ba lượt đo theo từng tháng. Mỗi điểm được tính từ CSV cấp lượt đo của cùng tháng và cùng bài toán; chỉ số không khả dụng được giữ là thiếu, không thay bằng 0. Quy mô Silver trong năm tháng dao động từ 19,05 đến 21,09 triệu dòng, tức mức lớn nhất cao hơn nhỏ nhất khoảng 10,8%. Dải này hẹp, nên không xem đây là benchmark tăng quy mô đáng kể.
 
-![Hình 4.5 — Thời gian ND2 qua năm tháng dữ liệu độc lập](../../docs/assets/chapter4/figure_4_5_nd2_monthly_stability.png)
+![Hình 4.5 — Thời gian ND2 qua năm tháng dữ liệu độc lập](../../../docs/assets/chapter4/figure_4_5_nd2_monthly_stability.png)
 
 *Hình 4.5. Trung vị và khoảng nhỏ nhất–lớn nhất của ba lượt ND2 cho mỗi phương án. Tháng 01 chạy ngày 03/11/2026; tháng 02–05 chạy ngày 30/10/2026. Nguồn: tệp CSV lượt đo thuộc hạng `official_standalone` và manifest dữ liệu.*
 
 Trong cả năm tháng, Baseline GroupBy có thời gian trung vị thấp nhất của ND2. Selective Salting đứng giữa, còn Uniform Salting có trung vị cao nhất. Trên các run đang lưu, Baseline dao động khoảng 1,11–2,02 giây; Selective Salting khoảng 2,55–4,40 giây; Uniform Salting khoảng 3,09–4,86 giây. Mẫu hình này nhất quán về thứ tự phương án, nhưng không chứng minh một quy luật tăng/giảm thời gian theo số dòng: tháng 01 là một ứng dụng Spark chạy ở ngày khác, và năm mức dữ liệu có quy mô gần nhau.
 
-![Hình 4.6 — Thời gian ND3 qua năm tháng dữ liệu độc lập](../../docs/assets/chapter4/figure_4_6_nd3_monthly_stability.png)
+![Hình 4.6 — Thời gian ND3 qua năm tháng dữ liệu độc lập](../../../docs/assets/chapter4/figure_4_6_nd3_monthly_stability.png)
 
 *Hình 4.6. Trung vị và khoảng nhỏ nhất–lớn nhất của ba lượt ND3 cho mỗi phương án; thời điểm chạy của từng tháng được chú thích trong hình. Nguồn: tệp CSV lượt đo thuộc hạng `official_standalone` và manifest dữ liệu.*
 
@@ -368,7 +376,7 @@ Mật độ mỗi zone bằng số chuyến drop-off chia cho diện tích polyg
 
 Trong cùng khung giờ, trung vị mật độ của nhóm phía Nam cao hơn nhóm phía Bắc: khoảng 2,91 lần vào ban ngày và 2,57 lần ban đêm trong dữ liệu tháng này. Năm zone mơ hồ không đưa vào phép so sánh hai nhóm.
 
-![Hình 4.7 — Trung vị mật độ trả khách theo nhóm Taxi Zone](../../docs/assets/chapter4/figure_4_7_manhattan_dropoff_density.png)
+![Hình 4.7 — Trung vị mật độ trả khách theo nhóm Taxi Zone](../../../docs/assets/chapter4/figure_4_7_manhattan_dropoff_density.png)
 
 *Hình 4.7. So sánh trung vị mật độ của từng zone phía nam và phía bắc trong cùng khung giờ. Nguồn: bộ dữ liệu Gold không gian tháng 01/2026.*
 
@@ -382,7 +390,7 @@ Nghiên cứu của Zhang, Sang và Wu về dịch vụ gọi xe, giao thông c�
 
 ### 4.6.4. Trực quan hóa bằng bản đồ Kepler.gl
 
-Tệp Kepler.gl [`.gl`](../../data/gold/dropoff_density_by_zone_period.gl) lưu dữ liệu và cấu hình để xem hai khung giờ tương tác. Tài liệu hiện chưa có ảnh chụp xác nhận giao diện Kepler.gl; Hình 4.7 là biểu đồ cột so sánh trung vị mật độ theo nhóm Taxi Zone, không phải bản đồ choropleth.
+Tệp Kepler.gl [`.gl`](../../../data/gold/dropoff_density_by_zone_period.gl) lưu dữ liệu và cấu hình để xem hai khung giờ tương tác. Tài liệu hiện chưa có ảnh chụp xác nhận giao diện Kepler.gl; Hình 4.7 là biểu đồ cột so sánh trung vị mật độ theo nhóm Taxi Zone, không phải bản đồ choropleth.
 
 ### 4.6.5. Giới hạn của phân tích mô tả
 
@@ -390,24 +398,13 @@ Kết quả là mô tả không gian của tháng 01/2026, không phải ước 
 
 ## 4.7. Thảo luận đánh đổi và ma trận khuyến nghị kỹ thuật
 
-Bảng 4.16 tóm lược các tín hiệu cần kiểm tra trước khi lựa chọn phương án. Đây là khuyến nghị kỹ thuật rút ra từ bài toán và cấu hình của đồ án, không phải quy tắc tối ưu áp dụng cho mọi hệ thống.
+Kết quả Phase C bao gồm phép nối trên dữ liệu NYC S3, kiểm tra độ ổn định của hotspot và các lượt chạy có kiểm soát trên dữ liệu tổng hợp. Các số liệu được trình bày theo từng thiết kế thí nghiệm.
 
-**Bảng 4.16. Ma trận quyết định sơ bộ cho lựa chọn phương án xử lý lệch tải**
-
-| Tình huống quan sát | Phương án nên thử trước | Bằng chứng trong đồ án | Chi phí và điều kiện cần kiểm tra |
-|---|---|---|---|
-| Chưa có bằng chứng một khóa gây chậm task | Baseline `groupBy` hoặc SMJ | Thời gian ND2 tháng 01 thấp nhất ở Baseline; ND3 Baseline gần AQE và nhanh hơn Salting Join | Giữ làm mốc, kiểm tra phân bố task và correctness trước khi thêm logic đặc biệt |
-| Phía OD sau projection đủ nhỏ để Broadcast theo cấu hình/tài nguyên thực tế | Kiểm tra chiến lược Spark tự chọn trước khi thêm logic salting | Phiên S3 bổ sung: Spark tự chọn BroadcastHashJoin không hint, median 12,384 giây so với Baseline 46,207 giây cùng phiên; DuckDB PASS | Một phiên, ba lượt; AQE tắt, threshold 10 MiB. Chưa đo riêng footprint broadcast hoặc kiểm tra ổn định giữa phiên; không coi đây là triển khai Flow-Join++ |
-| Aggregation có hot key và task skew được xác nhận | Thử Selective Salting, chỉ giữ nếu thời gian thực thi toàn phần đầu-cuối tốt hơn | TSR/PSR của ND2 giảm so với Baseline tháng 01, nhưng thời gian thực thi toàn phần tăng khoảng 2,18 lần | Thêm hashing, hai giai đoạn tổng hợp và logic duy trì hotspot; đo cả shuffle và thời gian |
-| Cần đối chứng hoặc bài toán có nhiều khóa lệch | Uniform Salting để làm nhánh thử nghiệm | Uniform giảm một số tỷ số lệch task nhưng thời gian và ghi shuffle ND2 cao hơn | Chia mọi khóa làm tăng xử lý; không dùng mặc định nếu hotspot tập trung ở một nhóm nhỏ |
-| Join có thể hưởng lợi từ điều chỉnh runtime | Bật AQE rồi kiểm tra final kế hoạch thực thi vật lý | Tháng 01 AQE có median thấp nhất nhưng spill; ở S3 AQE gần Baseline, spill bằng 0 và final plan chỉ coalesce, không split skew | AQE bật không đồng nghĩa skew split đã xảy ra; kiểm tra partition-level statistics, plan và spill |
-| Join còn skew sau AQE và phía dimension có thể nhân bản | Thử Salting Join có giới hạn | OD tăng 24.899 hàng ở tháng 01 và 25.256 ở S3; Salting có thời gian và Shuffle Read cao hơn Baseline trong hai phạm vi đã đo | Đo số hàng và byte phát sinh, shuffle, spill, correctness; chỉ giữ khi lợi ích bù được chi phí |
-
-*Nguồn: tổng hợp và đề xuất của tác giả dựa trên các kết quả benchmark và kiểm toán trong chương; đây không phải ngưỡng quyết định đã được kiểm định độc lập.*
+### 4.7.1. Đối chứng Spark tự chọn trên S3 ngày 22/11
 
 Flow-Join++ (Panduman, Ito & Onizuka, 2026) cung cấp cơ sở lý thuyết về dự đoán fanout/cardinality của heavy hitter, Heavy Hitter Push-Down và Broadcast Fast-Path cho distributed OLAP join. Đồ án chỉ thực hiện nhánh Spark tự chọn chiến lược join trên cùng workload OD để quan sát hành vi có liên quan một phần; đây không phải đối chứng Flow-Join++. Project chưa triển khai Scardina hoặc planner của Flow-Join++; ngưỡng auto-broadcast 10 MiB của Spark không tương đương cost/size-ratio threshold của Broadcast Fast-Path. Nguồn nghiên cứu: *Journal of Information Processing*, 34, 671–685, DOI: [10.2197/ipsjjip.34.671](https://doi.org/10.2197/ipsjjip.34.671).
 
-**Bảng 4.17. Đối chứng chiến lược join trên S3 tích lũy trong cùng phiên bổ sung**
+**Bảng 4.16. Đối chứng chiến lược join trên S3 tích lũy trong cùng phiên bổ sung**
 
 | Phương án | Median [min–max] (giây) | TSR | PSR | Shuffle Read (MiB) | Shuffle Write (MiB) | Memory/Disk Spill (MiB) |
 |---|---:|---:|---:|---:|---:|---:|
@@ -418,22 +415,117 @@ Flow-Join++ (Panduman, Ito & Onizuka, 2026) cung cấp cơ sở lý thuyết v�
 
 *Nguồn: application `app-20261122074817-0000`, Silver S3 101.263.728 dòng, cùng manifest với S3 official; mỗi nhánh ba lượt sau action warm-up, hai Worker cùng host. Metadata ghi hai executor thực cấp, mỗi executor một core và 1.500 MiB; `spark.cores.max=4` là mức trần. 12/12 dòng run collector OK và validation cấp phương án PASS; telemetry đủ 12/12 cửa sổ. Không gộp các lượt này với Bảng 4.4 hoặc pilot có hint.*
 
-Trong cùng phiên, Spark tự chọn `BroadcastHashJoin` với OD ở phía build; cả ba plan đều xác nhận lựa chọn này và mã nguồn nhánh không có hint. Median thấp hơn Baseline SMJ 73,2% (tỷ số thời gian Baseline/auto 3,73 lần). Đây là chênh lệch quan sát từ ba lượt sau warm-up trong một phiên, chưa kiểm định ý nghĩa thống kê hay chứng minh hiệu quả trên cụm khác. Các final plan AQE vẫn là SMJ có coalesce, không có skew split. Shuffle Read và Shuffle Write bằng nhau trong từng nhánh vì các bộ đếm tổng hợp bao gồm cặp ghi/đọc của các exchange trong job group. Với nhánh tự chọn, final plan cho thấy `BroadcastHashJoin` loại bỏ shuffle của phép nối, nhưng vẫn còn `Exchange hashpartitioning(PU_Borough, DO_Borough, 200)` cho phép tổng hợp kết quả theo cặp borough; 0,06 MiB vì thế không phải kích thước dữ liệu broadcast. Artifact run hiện không lưu metric dung lượng của `BroadcastExchange`, nên chưa thể định lượng riêng lượng broadcast đã chuyển. Shuffle Read trong bảng không phải tổng chi phí broadcast hay số byte NIC; không suy ra tốc độ mạng hoặc FinOps.
+Trong cùng phiên, Spark tự chọn `BroadcastHashJoin` với OD ở phía build; cả ba plan đều xác nhận lựa chọn này và mã nguồn nhánh không có hint. Median thấp hơn Baseline SMJ 73,2% (tỷ số thời gian Baseline/auto 3,73 lần). Đây là chênh lệch quan sát từ ba lượt sau warm-up trong một phiên, chưa kiểm định ý nghĩa thống kê hay chứng minh hiệu quả trên cụm khác. Các final plan AQE vẫn là SMJ có coalesce, không có skew split. Shuffle Read và Shuffle Write bằng nhau trong từng nhánh vì các bộ đếm tổng hợp bao gồm cặp ghi/đọc của các exchange trong job group. Với nhánh tự chọn, final plan cho thấy `BroadcastHashJoin` loại bỏ shuffle của phép nối, nhưng vẫn còn `Exchange hashpartitioning(PU_Borough, DO_Borough, 200)` cho phép tổng hợp kết quả theo cặp borough; 0,06 MiB vì thế không phải kích thước dữ liệu broadcast. CSV của phiên này thiếu chỉ số kích thước `BroadcastExchange`. Mục 4.7.5 trình bày chỉ số trích từ Event Log của phiên 10 block. Shuffle Read trong bảng không phải tổng chi phí broadcast hay số byte NIC; không suy ra tốc độ mạng hoặc FinOps.
 
 PSR của nhánh Spark tự chọn được giữ NA: ở stage được collector chọn (20 task), trường chung được ưu tiên là shuffle-read records và trung vị của trường này bằng 0. Đây là mẫu số 0 theo quy tắc đã chốt ở Chương 3, không phải PSR bằng 0 hoặc phép đo cân bằng hoàn hảo.
 
-![Hình 4.8 — Đối chứng chiến lược join S3](../../docs/assets/chapter4/figure_4_8_s3_auto_strategy.png)
+![Hình 4.8 — Đối chứng chiến lược join S3](../../../docs/assets/chapter4/figure_4_8_s3_auto_strategy.png)
 
 *Hình 4.8. Trung vị và min–max của ba lượt đo mỗi phương án trong cùng phiên S3 bổ sung. Nhánh Spark tự chọn có AQE tắt, không hint và threshold 10 MiB; final plan của ba lượt đều là BroadcastHashJoin.*
 
 OD có 63.572 khóa duy nhất; 101.263.728 chuyến đều khớp, không có khóa OD null/trùng hoặc chuyến không khớp. Mỗi chuyến khớp đúng một hàng dimension; số kết quả join theo một khóa OD bằng tần suất chuyến của khóa đó. Hotspot pickup P95 có 14 vùng, chọn 3.608 khóa OD và 16,02% chuyến. P95 tần suất theo cặp OD (chỉ để chẩn đoán) chọn 3.179 khóa, bao phủ 61,95% chuyến; chỉ 535 trong số đó thuộc các pickup đã chọn. Hai quy tắc sử dụng đơn vị khóa khác nhau; chênh lệch tập khóa không tự chứng minh pickup P95 sai hoặc task bị skew. P95 OD không phải ngưỡng chi phí heavy hitter của Flow-Join++ và không được dùng để thay H trong benchmark.
 
-Các chỉ số TSR/PSR trong Bảng 4.17 mô tả stage được collector chọn cho từng nhánh; khi đổi sang broadcast, stage đó có thể có vai trò khác stage của shuffle join. Vì vậy chênh lệch wall-time được diễn giải cùng physical plan và shuffle, không quy trực tiếp cho một thay đổi tỷ số skew. Phiên mới gồm ba lượt mỗi nhánh với ba phép xoay thứ tự đầu của chu kỳ bốn phương án; đây chưa phải thiết kế cân bằng đầy đủ mọi vị trí hay phép kiểm chứng thống kê. Chi tiết, audit đơn vị khóa và provenance ở [biên bản đối chứng S3](../03_pipeline_skew_benchmarks/docs/phase_c/flowjoin_auto_strategy_20261122.md).
+Các chỉ số TSR/PSR trong Bảng 4.16 mô tả stage được collector chọn cho từng nhánh; khi đổi sang broadcast, stage đó có thể có vai trò khác stage của shuffle join. Vì vậy chênh lệch wall-time được diễn giải cùng physical plan và shuffle, không quy trực tiếp cho một thay đổi tỷ số skew. Phiên ngày 22/11 gồm ba lượt mỗi nhánh với ba phép xoay thứ tự đầu của chu kỳ bốn phương án; đây chưa phải thiết kế cân bằng đầy đủ mọi vị trí hay phép kiểm chứng thống kê. Chi tiết, audit đơn vị khóa và provenance ở [biên bản đối chứng S3](../../03_pipeline_skew_benchmarks/docs/phase_c/flowjoin_auto_strategy_20261122.md).
 
-Salting thêm thao tác hash và nhân bản dimension; kết quả ND3 tháng 01/S3 cho thấy runtime, Shuffle Read và số dòng OD tăng trong các phiên được đo. AQE coalesce ở cả hai phạm vi nhưng không có bằng chứng skew split. S3 có telemetry host/cgroup đủ phiên, song telemetry không phân bổ CPU, GC hay I/O theo stage; các lượt tháng 01/ND4 không có bộ telemetry tương đương. Vì vậy CPU tax, network bottleneck, GC impact và FinOps vẫn là giả thuyết cần phép đo riêng. Shuffle bytes không đồng nghĩa với byte truyền qua NIC.
+Salting thêm thao tác hash và nhân bản bảng chiều. Trong các phiên ND3 tháng 01 và S3, phương án này làm tăng thời gian thực thi, Shuffle Read và số hàng OD. Phiên S3 official ba nhánh và phiên đối chứng ngày 22/11 có telemetry host/cgroup. Phiên 10 block ngày 23/11 có số đo công việc của task từ Event Log, đồng thời thiếu chuỗi telemetry host/cgroup liên tục. Các nguồn này giới hạn việc giải thích chênh lệch giữa các phiên.
+
+### 4.7.2. Kết quả 10 block ghép cặp trên NYC S3 và chi phí phát hiện hotspot
+
+Phiên chính Phase C ngày 23/11 (application `app-20261123043402-0000`) dùng 101.263.728 chuyến, 63.572 khóa OD, hai Worker và 1.500 MiB bộ nhớ mỗi executor. Bốn phương án hoàn tất đủ 10 block và đạt kiểm chứng theo mục 4.4.3. Lần thử 1.024 MiB dừng sau hai block khi tiến trình gắn với phiên bị kết thúc. Bảng dưới dùng riêng lượt đủ 10 block ở ngân sách 1.500 MiB.
+
+**Bảng 4.17. Thời gian và công việc của executor trong phiên S3 10 block**
+
+| Phương án | Trung vị [min–max] (s) | Tỷ số ghép cặp với SMJ [KTC 95%] | Tổng thời gian task¹ (s) | CPU executor¹ (s) | JVM GC¹ (s) |
+|---|---:|---:|---:|---:|---:|
+| Baseline SMJ | 27,884 [26,419–28,439] | — | 106,457 | 98,053 | 1,406 |
+| AQE | 28,189 [25,621–29,631] | 1,019 [0,999–1,039] | 107,960 | 102,444 | 0,954 |
+| Salting S=8 | 32,345 [30,411–34,800] | 1,161 [1,138–1,202] | 124,898 | 116,246 | 1,354 |
+| Spark tự chọn | 6,788 [5,551–7,183] | 0,244 [0,221–0,254] | 24,776 | 22,803 | 0,367 |
+
+*¹ Trung vị của các tổng theo lượt. Nguồn và cách ghép job group nằm trong [biên bản S3 10 block](../../03_pipeline_skew_benchmarks/docs/phase_c/s3_10block_20261123.md).*
+
+Theo ngưỡng 5%, AQE chưa cho thấy lợi thế thực hành rõ ràng so với Baseline. Salting chậm hơn và dùng tổng thời gian CPU nhiều hơn trong phiên. Spark tự chọn nhanh hơn, với 10/10 final plan dùng BroadcastHashJoin. Giá trị p sau hiệu chỉnh Holm lần lượt là 0,326, 0,0059 và 0,0059 cho ba so sánh với Baseline. Cả 10 plan AQE đều gộp phân vùng. Không quan sát thấy chia phân vùng lệch tải. Disk Spill và Memory Spill bằng 0 trong cả phiên. Với Salting, TSR/PSR giảm từ 1,98/1,95 xuống 1,76/1,55, trong khi Shuffle Read tăng từ 1.496,69 lên 1.650,64 MiB và tổng thời gian task tăng từ 106,457 lên 124,898 giây. Vì vậy, giảm chênh lệch tải giữa các task không bảo đảm giảm thời gian thực thi toàn phần trong workload này.
+
+Job đo riêng tái tạo đúng 14 hotspot S3. Action đầu mất 3,953 giây, hai action sau mất 1,699 và 1,277 giây. Cộng action đầu với trung vị Salting cho ước lượng 36,298 giây khi phải phát hiện hotspot. Đây là tổng hai số đo từ hai application, chưa đo trực tiếp toàn bộ luồng đầu-cuối. Khi dùng danh sách P95 đã lưu, Salting vẫn chậm hơn SMJ trong phiên này (32,345 so với 27,884 giây), nên tái sử dụng danh sách không tạo điểm hòa vốn so với SMJ.
+
+### 4.7.3. Độ ổn định của hotspot theo thời gian
+
+Trên Silver tháng 01–05, tỷ trọng chuyến thuộc tập P95 tháng nằm trong khoảng 15,78–16,31%, với Jaccard 0,867 giữa các tháng liền nhau. Khi tính riêng 120 tổ hợp tháng và giờ đón khách, mỗi tổ hợp có 256–260 vùng đón khách và tỷ trọng chuyến thuộc hotspot dao động từ 12,92% đến 26,07% (trung vị 15,63%). Jaccard trung vị là 0,733 giữa hai giờ liền nhau trong tháng và 0,857 khi so cùng giờ qua hai tháng liền nhau. Danh sách hotspot biến động nhiều hơn giữa các giờ liền nhau so với cùng giờ qua các tháng. Phiên này xác định hotspot bằng P95 nearest-rank cho từng tổ hợp tháng–giờ. Tác động của việc đưa giờ vào khóa ND2 hoặc dùng danh sách theo giờ cho ND3 chưa được đo.
+
+### 4.7.4. Dữ liệu tổng hợp và độ nhạy cấu hình
+
+Lưới v3 dùng seed 20261123, ba mức Zipf (0, 1, 2) và bốn mức kích thước Parquet của bảng chiều. Thiết kế tạo 12 ô, mỗi ô gồm năm block với bốn phương án. Cả 240 lượt có collector OK và kết quả đối soát PASS ở cấp phương án. Lưới v2 được giữ để chẩn đoán do một số plan tự chọn broadcast phía fact ngoài thiết kế. AQE đạt trung vị thấp nhất ở 12/12 ô. Có 7 ô mà khoảng bootstrap 95% của tỷ số giữa hai phương án đứng đầu nằm dưới 0,95, còn 5 ô chưa phân biệt được lợi thế 5%. Salting có trung vị thấp hơn SMJ ở hai ô dùng bảng chiều lớn, khoảng 12% ở ô Zipf 0 và 17% ở ô Zipf 2. AQE vẫn có trung vị thấp hơn ở cả hai ô này. Các lượt synthetic có 0 spill. Tất cả 60 final plan AQE của lưới có coalescing và chưa ghi nhận skew split.
+
+![Hình 4.9 — Kết quả chọn phương án trên lưới tổng hợp](../../../docs/assets/chapter4/figure_4_9_synthetic_decision_map.png)
+
+*Hình 4.9. Ma trận theo mức Zipf và kích thước Parquet của bảng chiều. H đánh dấu ô giữ lại. Ô xám biểu thị chênh lệch giữa hai phương án dẫn đầu chưa vượt ngưỡng thực hành theo khoảng bootstrap.*
+
+Độ nhạy được đo trên ô Zipf 1, bảng chiều mức medium. Năm cấu hình tạo 60 lượt hợp lệ, mỗi cấu hình có ba lượt cho mỗi phương án. Cả 15 final plan AQE có coalescing. Các ngưỡng 4 và 64 MiB đều chưa tạo skew split trong cấu hình đã đo. Vì mỗi cấu hình có ba lượt và chạy theo phiên riêng, các giá trị sau dùng để mô tả độ nhạy.
+
+**Bảng 4.18. Trung vị thời gian theo cấu hình trên một ô tổng hợp (giây)**
+
+| Phân vùng shuffle | Ngưỡng skew AQE | SMJ | AQE | Salting S=8 | Spark tự chọn |
+|---:|---:|---:|---:|---:|---:|
+| 64 | 16 MiB | 2,163 | 1,277 | 2,362 | 2,122 |
+| 200 | 16 MiB | 2,030 | 1,352 | 2,748 | 2,617 |
+| 400 | 16 MiB | 2,965 | 1,439 | 3,181 | 3,497 |
+| 200 | 4 MiB | 2,187 | 1,198 | 3,142 | 2,893 |
+| 200 | 64 MiB | 2,387 | 1,227 | 2,323 | 2,402 |
+
+*Ở hai dòng cuối, chỉ nhánh AQE sử dụng ngưỡng để xét phân vùng lệch. Các nhánh khác chạy lại làm đối chứng.*
+
+### 4.7.5. Kích thước broadcast quan sát được
+
+Đối chiếu Event Log của nhánh Spark tự chọn cho thấy 10/10 lượt NYC S3 ghi nhận `BroadcastExchange.data size` bằng 10.485.760 byte với 63.572 hàng OD. Trên lưới tổng hợp, 30/60 lượt tự chọn dùng broadcast, gồm toàn bộ lượt ở mức tiny và small. 30 lượt medium và large dùng SMJ. Bộ đếm SQL mô tả kích thước quan hệ broadcast do Spark ghi nhận. Byte truyền mạng và mức bộ nhớ đỉnh của executor cần phép đo riêng.
+
+**Bảng 4.19. Kích thước bảng chiều và quan hệ broadcast trên lưới tổng hợp**
+
+| Mức | Parquet nén (byte) | Hàng trong BroadcastExchange | Kích thước BroadcastExchange (byte) |
+|---|---:|---:|---:|
+| Tiny | 4.146 | 256 | 1.056.768 |
+| Small | 5.182.230 | 500.256 | 83.886.080 |
+| Medium | 19.232.349 | — | — |
+| Large | 48.093.999 | — | — |
+
+*Dấu gạch biểu thị Spark không chọn BroadcastExchange. Khả năng ép broadcast với hai mức cuối chưa được kiểm tra.*
+
+### 4.7.6. Đánh giá quy tắc chọn trên các ô giữ lại
+
+Manifest đánh dấu trước chín ô phát triển và ba ô giữ lại. Quy tắc lấy phương án có trung vị thấp nhất ở ô phát triển gần nhất theo hai biến đã chuẩn hóa là số mũ Zipf và log₂ kích thước Parquet của bảng chiều. Mốc oracle của một ô là trung vị thấp nhất trong số các phương án chạy thành công và qua đối soát. Regret bằng chênh lệch trung vị giữa phương án được chọn và oracle, chia cho trung vị của oracle.
+
+**Bảng 4.20. Đánh giá quy tắc trên ba ô tổng hợp giữ lại**
+
+| Ô giữ lại | Phương án được chọn | Oracle (s) | KTC 95% tỷ số hai phương án dẫn đầu | Regret |
+|---|---|---:|---:|---:|
+| Zipf 0, tiny | AQE | 0,855 | [0,667–1,244] | 0% |
+| Zipf 1, large | AQE | 1,934 | [0,526–0,798] | 0% |
+| Zipf 2, medium | AQE | 1,182 | [0,407–0,714] | 0% |
+
+*Cả bốn phương án hoàn tất và qua đối soát ở 12/12 ô. Ô Zipf 0, tiny chưa phân định được lợi thế theo ngưỡng 5%.*
+
+Regret trung vị và lớn nhất đều bằng 0% trên ba ô giữ lại. Mốc luôn chọn AQE cho kết quả giống hệt vì AQE dẫn đầu ở cả chín ô phát triển và cả ba ô giữ lại. Số ô kiểm tra còn ít, cùng bộ sinh và cụm hai Worker. Hồ sơ có bằng chứng về việc đánh dấu trước các ô giữ lại, nhưng chưa xác nhận quy tắc đã được khóa trước khi xem kết quả của các ô đó. Kết quả này dùng để đánh giá sơ bộ trong phạm vi bộ sinh. Xem [biên bản thực thi Phase C](../../03_pipeline_skew_benchmarks/docs/phase_c/phase_c_execution_report_20261123.md) để truy nguyên dữ liệu theo từng WP.
+
+### 4.7.7. Ma trận lựa chọn phương án trên workload đích
+
+Bảng 4.21 tóm lược các tín hiệu cần kiểm tra trước khi lựa chọn phương án. Đây là khuyến nghị kỹ thuật rút ra từ bài toán và cấu hình của đồ án, không phải quy tắc tối ưu áp dụng cho mọi hệ thống.
+
+**Bảng 4.21. Ma trận quyết định sơ bộ cho lựa chọn phương án xử lý lệch tải**
+
+| Tình huống quan sát | Phương án nên thử trước | Bằng chứng trong đồ án | Chi phí và điều kiện cần kiểm tra |
+|---|---|---|---|
+| Chưa có bằng chứng một khóa gây chậm task | Baseline `groupBy` hoặc SMJ | Thời gian ND2 tháng 01 thấp nhất ở Baseline; ND3 Baseline gần AQE và nhanh hơn Salting Join | Giữ làm mốc, kiểm tra phân bố task và correctness trước khi thêm logic đặc biệt |
+| Phía OD sau projection đủ nhỏ để Broadcast theo cấu hình/tài nguyên thực tế | Kiểm tra chiến lược Spark tự chọn trước khi thêm logic salting | Phiên S3 10 block: Spark tự chọn BroadcastHashJoin, trung vị 6,788 giây so với 27,884 giây của SMJ | Nhánh tự chọn dùng AQE tắt, ngưỡng 10 MiB. Mục 4.7.5 báo kích thước BroadcastExchange từ phiên 10 block. Cần kiểm tra mức bộ nhớ đỉnh trên workload đích. |
+| Aggregation có hot key và task skew được xác nhận | Thử Selective Salting, chỉ giữ nếu thời gian thực thi toàn phần đầu-cuối tốt hơn | TSR/PSR của ND2 giảm so với Baseline tháng 01, nhưng thời gian thực thi toàn phần tăng khoảng 2,18 lần | Thêm hashing, hai giai đoạn tổng hợp và logic duy trì hotspot; đo cả shuffle và thời gian |
+| Cần đối chứng hoặc bài toán có nhiều khóa lệch | Uniform Salting để làm nhánh thử nghiệm | Uniform giảm một số tỷ số lệch task nhưng thời gian và ghi shuffle ND2 cao hơn | Chia mọi khóa làm tăng xử lý; không dùng mặc định nếu hotspot tập trung ở một nhóm nhỏ |
+| Join có thể hưởng lợi từ điều chỉnh runtime | Bật AQE rồi kiểm tra kế hoạch thực thi cuối | Tháng 01 AQE có median thấp nhất nhưng spill; ở S3 10 block AQE chưa phân định với SMJ theo δ và plan chỉ ghi nhận gộp phân vùng | AQE bật không đồng nghĩa skew split đã xảy ra; kiểm tra partition-level statistics, plan và spill |
+| Join còn skew sau AQE và phía dimension có thể nhân bản | Thử Salting Join có giới hạn | OD tăng 24.899 hàng ở tháng 01 và 25.256 ở S3; Salting có thời gian và Shuffle Read cao hơn Baseline trong hai phạm vi đã đo | Đo số hàng và byte phát sinh, shuffle, spill, correctness; chỉ giữ khi lợi ích bù được chi phí |
+
+*Nguồn: tổng hợp và đề xuất của tác giả dựa trên các kết quả benchmark và kiểm toán trong chương; đây không phải ngưỡng quyết định đã được kiểm định độc lập.*
 
 ## 4.8. Tổng kết chương
 
-Phiên S3 bổ sung cho thấy Spark tự chọn `BroadcastHashJoin` không hint khi AQE tắt và ngưỡng broadcast là 10 MiB: median 12,384 giây so với 46,207 giây của Baseline SMJ trong cùng phiên. Kết quả gồm ba lượt mỗi phương án, chưa xác lập độ ổn định giữa các phiên. DuckDB xác nhận một lần cho kết quả logic của mỗi phương án, không phải 12 audit độc lập. Đồ án chưa triển khai mô hình dự đoán, Heavy Hitter Push-Down hay Broadcast Fast-Path của Flow-Join++.
+Baseline có trung vị thấp nhất trong các phép đo ND2. Trên NYC S3 10 block, Spark tự chọn BroadcastHashJoin đứng đầu (6,788 giây). AQE và SMJ chưa phân định theo ngưỡng 5%, còn Salting giảm một số tỷ số lệch task nhưng làm tăng thời gian và công việc executor. Chi phí quét P95 nâng ước lượng thời gian Salting lần đầu lên 36,298 giây. AQE gộp phân vùng, chưa quan sát thấy skew split.
 
-Trong phạm vi dữ liệu và cấu hình đã đo, Baseline có median ND2 thấp nhất; final plan AQE có coalescing nhưng không có skew split; salting giảm một số tỷ số skew nhưng phát sinh thêm xử lý và shuffle. Chưa có bằng chứng để khuyến nghị AQE hoặc salting làm mặc định; nên thử trên workload thực tế và kiểm tra plan, skew, shuffle, spill, correctness cùng chi phí nhân bản. ND4 giữ riêng hai phiên trên cùng manifest. Năm tháng độc lập và các tier S1–S3 chưa chứng minh quy luật scaling tổng quát: S1/S2 là pilot, S3 mới là official. Cụm chạy trên một host; telemetry host/cgroup chỉ có cho S3 và không phân bổ CPU/I/O theo stage. Phân tích Manhattan là mô tả theo Taxi Zone với đường tham chiếu xấp xỉ, không xác định tác động nhân quả. Các kết luận chỉ áp dụng cho dữ liệu, cấu hình và artifact đã lưu; không xác lập ý nghĩa thống kê hay hiệu quả trên cụm khác.
+Trên lưới tổng hợp, AQE có trung vị thấp nhất ở 12/12 ô. Quy tắc dựa trên độ lệch khóa và kích thước Parquet đạt cùng kết quả với mốc luôn chọn AQE ở cả ba ô giữ lại. Kết quả giới hạn trong workload và cấu hình đã đo.
+
+ND4 xác nhận quy trình có thể chạy lại trên cùng manifest qua Airflow. Phân tích Manhattan minh họa cách tầng Gold mô tả mật độ trả khách theo Taxi Zone quanh đường tham chiếu 60th Street.

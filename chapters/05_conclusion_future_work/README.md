@@ -5,10 +5,10 @@ Thư mục này dành cho bản thảo tổng hợp theo các câu hỏi nghiên
 ## Nguồn để tổng hợp
 
 - Kết quả ND2, ND3, scaling và giới hạn: `../04_results_tradeoffs/README.md`.
-- Tóm tắt Chương 3: `../03_pipeline_skew_benchmarks/docs/chapter3_sections_3_2_to_3_5.md`.
+- Tóm tắt Chương 3: `../03_pipeline_skew_benchmarks/manuscript/chapter3_sections_3_2_to_3_5.md`.
 - Giới hạn phân tích CRZ/Taxi Zone: `../03_pipeline_skew_benchmarks/docs/chapter3_spatial_research_notes.md`.
 - Checklist độ đầy đủ artifact: `../03_pipeline_skew_benchmarks/docs/chapter3_artifact_audit.md`.
-- Ghi chú về cách nêu ba bài tham khảo trong kết luận/hướng phát triển: [research_alignment_notes.md](../research_alignment_notes.md#chương-5--kết-luận-và-hướng-phát-triển).
+- Ghi chú về cách nêu ba bài tham khảo trong kết luận/hướng phát triển: [research_alignment_notes.md](../shared/research_alignment_notes.md#chương-5--kết-luận-và-hướng-phát-triển).
 
 ## Lưu ý khi viết
 

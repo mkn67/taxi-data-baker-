@@ -10,6 +10,7 @@ import os
 import json
 import sys
 import time
+import random
 import pandas as pd
 from pyspark.sql import functions as F
 
@@ -44,23 +45,31 @@ def materialize_join_result(joined_df):
 
 def main():
     parser = argparse.ArgumentParser(description="ND3 Join Skew Benchmark Runner")
-    parser.add_argument("--mode", choices=["pilot", "full"], default="pilot", help="Benchmark mode (default: pilot; use full for official 3-iteration runs)")
+    parser.add_argument("--mode", choices=["pilot", "full"], default="pilot", help="Benchmark mode (default: pilot; full uses the configured official iteration count)")
     parser.add_argument("--master", default=None, help="Spark Master URL")
     parser.add_argument("--partitions", type=int, default=200, help="Shuffle partitions count")
+    parser.add_argument("--aqe-skew-threshold-mb", type=int, default=16, help="AQE skew-size threshold in MiB (default: 16)")
+    parser.add_argument("--aqe-skew-factor", type=int, default=2, help="AQE skew factor (default: 2)")
     parser.add_argument("--include-broadcast", action="store_true", help="Add an explicit Broadcast Hash Join reference in pilot mode")
     parser.add_argument("--include-auto-broadcast", action="store_true", help="Add an unhinted Spark auto-strategy comparison arm")
     parser.add_argument("--pilot-iterations", type=int, default=1, help="Measured iterations in pilot mode (default: 1); rotates method order")
+    parser.add_argument("--official-iterations", type=int, default=3, help="Measured paired blocks in full mode (default: 3)")
+    parser.add_argument("--order-seed", type=int, default=20261123, help="Fixed seed for randomized method order in full mode")
     args = parser.parse_args()
     if args.include_broadcast and args.mode != "pilot":
         parser.error("--include-broadcast is restricted to pilot mode; official three-method results stay separate.")
     if args.include_auto_broadcast and args.include_broadcast:
         parser.error("Use either --include-broadcast or --include-auto-broadcast, not both.")
-    if args.include_auto_broadcast and args.mode != "full":
-        parser.error("--include-auto-broadcast is reserved for a full Standalone comparison run.")
+    if args.include_auto_broadcast and args.mode == "pilot" and args.master and not args.master.startswith("spark://"):
+        parser.error("--include-auto-broadcast pilot requires a Standalone master URL.")
     if args.pilot_iterations < 1:
         parser.error("--pilot-iterations must be at least 1.")
     if args.mode == "full" and args.pilot_iterations != 1:
         parser.error("--pilot-iterations applies only to pilot mode.")
+    if args.official_iterations < 1:
+        parser.error("--official-iterations must be at least 1.")
+    if args.aqe_skew_threshold_mb < 1 or args.aqe_skew_factor < 1:
+        parser.error("AQE skew threshold and factor must be positive.")
 
     configure_environment()
     paths = resolve_paths()
@@ -73,7 +82,7 @@ def main():
     silver_manifest = dataset_manifest_fingerprint(paths["silver_path"])
     od_manifest = dataset_manifest_fingerprint(paths["od_matrix_path"])
 
-    num_iterations = args.pilot_iterations if args.mode == "pilot" else 3
+    num_iterations = args.pilot_iterations if args.mode == "pilot" else args.official_iterations
     master_url = args.master or get_spark_master_url()
     require_standalone = args.mode == "full"
     if require_standalone and not master_url.startswith("spark://"):
@@ -103,7 +112,8 @@ def main():
     os.makedirs(plans_dir, exist_ok=True)
     collector = SparkMetricsCollector(spark)
 
-    df_trips = spark.read.parquet(paths["silver_path"] + "/*.parquet")
+    silver_read_path = paths["silver_path"] if os.path.isfile(paths["silver_path"]) else paths["silver_path"] + "/*.parquet"
+    df_trips = spark.read.parquet(silver_read_path)
     df_od = spark.read.parquet(paths["od_matrix_path"])
 
     # Preflight OD uniqueness and the expected dimension-side replication cost.
@@ -138,7 +148,7 @@ def main():
     collector.end_run("warmup_join_base")
 
     collector.start_run("warmup_join_aqe", "Warmup AQE")
-    materialize_join_result(join_aqe_skew(spark, df_trips, df_od, skew_factor=2, skew_threshold_mb=16)).collect()
+    materialize_join_result(join_aqe_skew(spark, df_trips, df_od, skew_factor=args.aqe_skew_factor, skew_threshold_mb=args.aqe_skew_threshold_mb)).collect()
     collector.end_run("warmup_join_aqe")
 
     collector.start_run("warmup_join_salt", "Warmup Salting")
@@ -157,7 +167,7 @@ def main():
     # 2. Measured runs (configurable pilot iterations or three official iterations)
     methods_join = [
         ("Baseline_SMJ", lambda: join_baseline_smj(spark, df_trips, df_od)),
-        ("Spark_AQE_Skew_Join", lambda: join_aqe_skew(spark, df_trips, df_od, skew_factor=2, skew_threshold_mb=16)),
+        ("Spark_AQE_Skew_Join", lambda: join_aqe_skew(spark, df_trips, df_od, skew_factor=args.aqe_skew_factor, skew_threshold_mb=args.aqe_skew_threshold_mb)),
         ("Salting_Join_S8", lambda: join_salting(spark, df_trips, df_od, hotspot_pu_ids, num_salts=8)),
     ]
     if args.include_broadcast:
@@ -168,12 +178,17 @@ def main():
     if args.include_broadcast or args.include_auto_broadcast:
         orders_join = [[(position + shift) % len(methods_join) for position in range(len(methods_join))]
                        for shift in range(len(methods_join))]
+    order_rng = random.Random(args.order_seed)
 
     all_join_runs = []
     final_join_results = {}
 
     for iteration in range(1, num_iterations + 1):
-        cur_order = orders_join[(iteration - 1) % len(orders_join)]
+        if args.mode == "full":
+            cur_order = list(range(len(methods_join)))
+            order_rng.shuffle(cur_order)
+        else:
+            cur_order = orders_join[(iteration - 1) % len(orders_join)]
         order_names = [methods_join[idx][0] for idx in cur_order]
         print(f">>> LƯỢT ĐO JOIN #{iteration}/{num_iterations} | Thứ tự: {' -> '.join(order_names)}")
 

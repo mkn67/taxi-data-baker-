@@ -132,6 +132,18 @@ Trong benchmark ND3, OD dimension cần duy nhất theo composite key. Preflight
 
 Trình tự benchmark sau khi sửa runner là: chuẩn bị input và manifest → action warm-up từng phương án → ba lượt đo luân phiên thứ tự → thu metrics và plan cuối → đối soát DuckDB → lọc run hợp lệ → tổng hợp trung vị và độ phân tán. Event Log phải xác nhận job warm-up của từng phương án; không suy ra warm-up đã chạy chỉ vì source code có nhãn đó. Mỗi bước ghi nhận đường dẫn artifact để kết quả ở Chương 4 truy được về đúng run.
 
+### 3.5.5. Thiết kế thực nghiệm mở rộng Phase C
+
+Phase C đánh giá khi nào chi phí của Salting Join được bù bởi cải thiện thời gian thực thi, với Baseline SMJ, AQE và chiến lược không hint do Spark chọn làm đối chứng. Nhánh tự chọn tắt AQE và dùng ngưỡng broadcast 10 MiB. Trên Silver S3 tích lũy tháng 01–05, mỗi phương án thực hiện một action khởi động, sau đó được đo một lần trong mỗi block. Phiên này gồm 10 block với thứ tự phương án được xáo trộn bằng seed 20261123. Ba so sánh chính sử dụng Baseline làm mốc trong cùng block. Báo cáo dùng trung vị tỷ số thời gian ghép cặp, khoảng bootstrap 95% từ 10.000 lần lấy mẫu lại theo block và kiểm định đổi dấu với hiệu chỉnh Holm. Ngưỡng chênh lệch có ý nghĩa thực hành là 5%. Phân tích giới hạn ở phiên đo này.
+
+Chi phí phát hiện hotspot được đo bằng một job Spark riêng trên cùng Silver S3. Thời gian chính dùng danh sách P95 đã lưu. Tổng thời gian khi phải tính hotspot được ước lượng bằng cách cộng hai phép đo. Event Log cung cấp tổng thời gian task, thời gian CPU của executor và thời gian JVM GC. Đây là các chỉ số tích lũy qua task. GC là một thành phần được báo riêng. Với nhánh tự chọn, phép trích xuất bổ sung ghép job group và mã SQL execution rồi đọc bộ đếm `data size` và số hàng của `BroadcastExchange`. Các ô không thực hiện exchange này để trống chỉ số kích thước.
+
+Để khảo sát sự thay đổi của hotspot, DuckDB đếm chuyến theo `PULocationID` theo tháng và theo từng giờ lấy từ `pickup_datetime` của Silver. Mỗi tập dùng P95 theo hạng gần nhất và giữ mọi zone đạt ngưỡng, kể cả trường hợp bằng nhau. Độ tương đồng Jaccard bằng số zone giao nhau chia cho số zone hợp lại. Hai phép so sánh dùng các giờ liền nhau trong cùng tháng và cùng giờ ở hai tháng liền nhau. Báo cáo kèm tỷ trọng chuyến của hotspot trong từng nhóm quan sát.
+
+Thực nghiệm tổng hợp v3 giữ hai triệu dòng fact mỗi ô, dùng ba mức Zipf (0, 1 và 2) và bốn kích thước bảng chiều. Bảng chiều được mở rộng bằng khóa bổ sung không khớp fact, nên số khóa khớp giữ ở 256. Kích thước dùng để thiết kế lưới là dung lượng Parquet nén đo trên đĩa. Mỗi ô có năm block ghép cặp và đối soát DuckDB theo phương án. Phân tích độ nhạy dùng một ô cố định, thay số phân vùng shuffle 64, 200 và 400 cho mọi nhánh, rồi khảo sát ngưỡng skew AQE 4 và 64 MiB ở 200 phân vùng.
+
+Phân hoạch tổng hợp gồm chín ô phát triển và ba ô giữ lại được chỉ định trong manifest trước khi đo. Quy tắc thăm dò chọn phương án có trung vị thấp nhất ở ô phát triển gần nhất theo số mũ Zipf và log₂ dung lượng Parquet. Đánh giá dùng chênh lệch tương đối với phương án khả thi, đúng kết quả và có trung vị thấp nhất ở ô giữ lại. Phép đối chiếu luôn chọn AQE giúp đánh giá liệu quy tắc dùng hai biến đầu vào có đem thêm giá trị trên lưới này hay không. Hồ sơ thiết kế nằm trong [giao thức Phase C](../docs/phase_c/implementation_protocol_v1.md).
+
 ## 3.6. Phương pháp phân tích mật độ trả khách quanh ranh giới thu phí Manhattan
 
 ### 3.6.1. Bối cảnh Congestion Relief Zone và nghiên cứu liên quan
@@ -163,9 +175,4 @@ Gold hiện có map JSON Kepler.gl dạng `.gl` tại `data/gold/dropoff_density
 Chương triển khai hai bài toán lệch tải trên Spark: aggregation ND2 và OD key-based join ND3. Các phương án salting bảo toàn kết quả theo DuckDB nhưng có wall time cao hơn baseline trên dải dữ liệu đã đo. AQE final plans không thể hiện skew partition splitting; AQE official tháng độc lập trước đây có spill, còn S3 official không spill. Salting ND3 làm tăng số hàng OD theo hệ số S: S2 tăng từ 62.223 lên 87.409 (+25.186), S3 từ 63.572 lên 88.828 (+25.256). S3 official đạt 9/9 lượt correctness/provenance, hai Worker và đủ telemetry. Median Baseline/AQE/Salting là 45,902/45,052/54,013 giây; AQE coalesce, không split skew, shuffle xấp xỉ Baseline; Salting có shuffle cao hơn. Pilot S1/S2/S3 và S3 official được giữ theo từng tier/phiên; S2 có một phiên chậm chưa giải thích, vì vậy các mức dữ liệu không xác lập quy luật scaling tổng quát. Phân tích mật độ drop-off là mô tả theo Taxi Zone, không nhận diện quan hệ nhân quả với chính sách. Mọi kết luận hiệu năng giới hạn ở Spark 3.5.9, hai Worker cùng host, 200 shuffle partitions, dữ liệu và pipeline tiền xử lý hiện tại.
 
 
-## Danh sách artifact cần gắn khi hoàn thiện bản luận văn
-
-- ND2: `benchmark_nd2_aggregation_runs_official_standalone.csv`, `benchmark_nd2_aggregation_summary_official_standalone.csv`, `benchmark_nd2_aggregation_audit_official_standalone.csv` và thư mục plan đúng tier.
-- ND3: `benchmark_nd3_join_runs_official_standalone.csv`, `benchmark_nd3_join_summary_official_standalone.csv`, `benchmark_nd3_join_audit_official_standalone.csv` và plan cuối cho mỗi phương án/lượt.
-- Spark UI hoặc REST executor evidence thể hiện ít nhất hai worker; AQE final plan; OD composite-key uniqueness audit; manifest/config của đúng run.
-- Với các mức scaling, gắn cả run CSV và summary theo tháng; không trộn kết quả của các tháng độc lập thành một tập tích lũy.
+Phase C mở rộng phép so sánh ND3 với 10 block trên S3 và lưới tổng hợp có kiểm soát. Các kết quả về chi phí P95, chiến lược join và độ nhạy cấu hình được trình bày ở mục 4.7.

@@ -13,4 +13,4 @@ Thư mục này là chỉ mục đầu ra cho các mục 2.1–2.7. Dữ liệu 
 
 Theo mục lục người dùng cung cấp, Chương 2 được đánh dấu hoàn tất. Bản thảo nội dung Chương 2 chưa có trong repository này; thư mục hiện đóng vai trò mục lục artifact.
 
-Đối chiếu thuật ngữ mục 2.5 với MFTune: xem [research_alignment_notes.md](../research_alignment_notes.md#chương-2--tiền-xử-lý-và-thiết-kế-quy-mô). Các tháng 01–05 hiện là benchmark trên input độc lập gần cùng kích thước, chưa phải fidelity levels có kiểm tra proxy/full-fidelity.
+Đối chiếu thuật ngữ mục 2.5 với MFTune: xem [research_alignment_notes.md](../shared/research_alignment_notes.md#chương-2--tiền-xử-lý-và-thiết-kế-quy-mô). Các tháng 01–05 hiện là benchmark trên input độc lập gần cùng kích thước, chưa phải fidelity levels có kiểm tra proxy/full-fidelity.

@@ -45,7 +45,7 @@ Tài liệu này nối từng yêu cầu trong đề cương với mã nguồn, 
 | Đóng gói bằng chứng ND4 | `scripts/chapter_04/build_nd4_march_artifacts.py` | Kiểm tra 18 dòng run, tạo bảng so sánh, biểu đồ thời gian và JSON provenance gắn với Airflow run ID. |
 | Tổng hợp bằng chứng Chương 4 | `scripts/chapter_04/build_chapter4_evidence.py` | Đọc CSV đã lưu, tính lại bảng và correctness summaries; không khởi chạy Spark. |
 | Vẽ kết quả | `scripts/chapter_04/build_chapter4_figures.py` | Sinh hình ND2/ND3 vào `data/benchmarks/` và bản dùng trong báo cáo vào `docs/assets/chapter4/`. |
-| Bản thảo | `chapters/04_results_tradeoffs/chapter4_results.md` | Có diễn giải kết quả cũ và ghi chú riêng cho lượt Airflow tháng 03. |
+| Bản thảo | `chapters/04_results_tradeoffs/manuscript/chapter4_results.md` | Có diễn giải kết quả cũ và ghi chú riêng cho lượt Airflow tháng 03. |
 | Airflow | `dags/chapter4_march_benchmark.py` và service `airflow-standalone` | DAG đã chạy success ngày 20/11/2026; log task được lưu dưới `logs/airflow/`. |
 | Tháng 03/2026 | `data/benchmarks/scaling/2026_03/` và `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/` | Thư mục đầu là monthly run cũ; thư mục sau là run ND4 Airflow mới, có application ID/provenance riêng. |
 

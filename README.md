@@ -156,7 +156,7 @@ Benchmark official và benchmark tháng 02–05 cần đúng volume, dependencie
 | Hướng dẫn notebook | [notebooks/README.md](notebooks/README.md) |
 | Scripts theo chương | [scripts/README.md](scripts/README.md) |
 | Bản thảo và audit Chương 3 | [chapters/03_pipeline_skew_benchmarks/README.md](chapters/03_pipeline_skew_benchmarks/README.md) |
-| Kế hoạch viết Chương 4 | [chapters/04_results_tradeoffs/plan_chuong_4.md](chapters/04_results_tradeoffs/plan_chuong_4.md) |
+| Kế hoạch viết Chương 4 | [chapters/04_results_tradeoffs/planning/plan_chuong_4.md](chapters/04_results_tradeoffs/planning/plan_chuong_4.md) |
 | Tổ chức tài liệu Chương 1–5 | [chapters/README.md](chapters/README.md) |
 
 ## Bản đồ theo 4 nội dung đồ án
@@ -179,4 +179,4 @@ Hình được chia theo mục đích: hình trình bày cố định nằm tron
 - Spatial analysis dùng một tháng hậu chính sách và nhóm Taxi Zone theo ranh giới xấp xỉ; không thể suy ra tác động nhân quả của chính sách thu phí.
 - DAG ND4 đã chạy thành công trên Compose; run xác nhận clean hoàn tất cả ba task. Airflow UI ở cổng 8085. Chưa có SparkListener tùy biến hoặc số đo mức sử dụng CPU/RAM cgroup theo từng application. Docker Hub có thể gặp timeout lại; host fallback không tương đương Compose và không được gộp vào kết quả official.
 
-Xem [ghi chú đối chiếu nghiên cứu](chapters/research_alignment_notes.md) để biết project tham khảo CIBPartitioner, MFTune và nghiên cứu chính sách Zhang et al. ở phạm vi nào; project không tuyên bố đã triển khai các phương pháp đó.
+Xem [ghi chú đối chiếu nghiên cứu](chapters/shared/research_alignment_notes.md) để biết project tham khảo CIBPartitioner, MFTune và nghiên cứu chính sách Zhang et al. ở phạm vi nào; project không tuyên bố đã triển khai các phương pháp đó.

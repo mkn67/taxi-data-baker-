@@ -102,9 +102,24 @@ Official full ND3 runs have completed for independent monthly Silver and OD dime
 | [x] | Tạo Kepler.gl v1 JSON `.gl` nhúng hai layer Daytime/Nighttime và viết diễn giải kết quả cùng giới hạn mô tả tại `docs/chapter3_spatial_research_notes.md`; cấu trúc JSON được validate, nhưng chưa visually QA trong UI Kepler.gl. |
 | [x] | Bổ sung nghiên cứu liên quan và trích dẫn bối cảnh CRZ tại `docs/chapter3_spatial_research_notes.md`, gồm nguồn MTA/NY Open Data và NBER. |
 | **3.7 — Tổng kết chương** | |
-| [x] | Đã viết tổng kết dựa trên benchmark và Gold spatial tại mục 3.7 của `docs/chapter3_sections_3_2_to_3_5.md`; nêu giới hạn và không suy diễn nhân quả. |
+| [x] | Đã viết tổng kết dựa trên benchmark và Gold spatial tại mục 3.7 của `manuscript/chapter3_sections_3_2_to_3_5.md`; nêu giới hạn và không suy diễn nhân quả. |
 
 Các ô `[x]` đánh dấu artifact/mã đã có trong repository; chúng không đồng nghĩa benchmark chính thức đã hoàn thành. Hash manifest benchmark bao gồm đường dẫn Parquet tương đối, kích thước tệp và modification time, không phải checksum nội dung.
+
+## Phase C — phần mở rộng thực nghiệm WP0–WP7
+
+| Trạng thái | Bằng chứng / giới hạn |
+|---|---|
+| [x] | Đóng băng protocol paired-block, thứ tự ngẫu nhiên, ngưỡng thực tế δ=5%, bootstrap và Holm correction trước các lượt mở rộng; xem `docs/phase_c/implementation_protocol_v1.md`. |
+| [x] | Đo chi phí phát hiện exact P95 trên S3 và trích xuất task runtime/CPU/GC từ Event Log cho phiên S3 10-block. Phần host/cgroup liên tục chưa được thu trong phiên đó. |
+| [x] | S3 ND3 10-block: 40/40 dòng collector `OK` và DuckDB `PASS`, cùng manifest, hai Worker và 40 final plans; kết quả không gộp với các phiên S3 trước. |
+| [x] | Phân tích ổn định exact-P95 theo tháng và theo giờ: năm tháng × 24 khung giờ, 120 dòng; hotspot trip share theo giờ 12,92–26,07%. Chưa chạy benchmark ND2/ND3 theo khóa `(zone, hour)`. |
+| [x] | Synthetic v3 skew × dimension: 12 ô, 5 block × 4 nhánh mỗi ô; 240/240 lượt collector `OK` và DuckDB `PASS`. v2 giữ làm diagnostic, không dùng huấn luyện/quy tắc held-out. |
+| [x] | Sensitivity partitions/AQE: 5 cấu hình, 60/60 lượt `OK/PASS`; không thấy AQE skew split trong final plans. |
+| [x] | Đánh giá quy tắc nearest-development-cell trên ba ô synthetic held-out: regret quan sát bằng 0 trên các ô này; cỡ mẫu nhỏ, không xem là policy tổng quát. |
+| [ ] | Hoàn tất rà soát related work và novelty trước khi dùng tuyên bố mới; không tìm thấy bản nháp cục bộ “AQE or Salting?”. Kích thước dimension hiện là compressed Parquet bytes, không phải in-memory broadcast size. |
+
+Biên bản tổng hợp, kết quả và lệnh tái lập nằm trong [`phase_c/phase_c_execution_report_20261123.md`](phase_c/phase_c_execution_report_20261123.md). Các số synthetic luôn phải được báo tách khỏi dữ liệu NYC.
 
 ## Reproducibility commands
 

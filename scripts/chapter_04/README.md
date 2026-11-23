@@ -6,7 +6,7 @@ Thư mục gồm cả DAG orchestration và các script tổng hợp.
 
 DAG `dags/chapter4_march_benchmark.py` chạy ND2 rồi ND3 tuần tự trên Spark Standalone. Mỗi runner dùng một warm-up, ba lượt đo và đối soát DuckDB. Lượt xác nhận sạch `nd4-march-clean-20261120` chạy thành công cả ba task ngày 20/11/2026; kết quả nằm riêng ở `data/benchmarks/nd4_airflow/2026_03/nd4-march-clean-20261120/`.
 
-Hai phiên lặp cùng giao thức warm-up ngày 22/11/2026 là `nd4-march-repeat-20261122` và `nd4-march-repeat2-20261122`; xem `chapters/04_results_tradeoffs/nd4_reproducibility_20261122.md`. Lượt 20/11 dùng runner ND3 cũ chưa thực hiện action warm-up, nên được báo riêng.
+Hai phiên lặp cùng giao thức warm-up ngày 22/11/2026 là `nd4-march-repeat-20261122` và `nd4-march-repeat2-20261122`; xem `chapters/04_results_tradeoffs/evidence/nd4_reproducibility_20261122.md`. Lượt 20/11 dùng runner ND3 cũ chưa thực hiện action warm-up, nên được báo riêng.
 
 Có thể đóng gói lại bảng, hình và provenance cho một run đã hoàn thành bằng:
 
@@ -29,7 +29,7 @@ python scripts/chapter_04/build_chapter4_remaining.py
 - `build_chapter4_figures.py`: Hình 4.2 và 4.3 từ CSV cấp lượt đo tháng 01.
 - `build_chapter4_remaining.py`: kiểm tra benchmark official theo tháng, bảng ổn định và kết quả không gian.
 - Bảng tổng hợp Chương 4 nằm ở `data/benchmarks/chapter4_evidence/`; hình bản thảo ở `docs/assets/chapter4/`.
-- Bản thảo: `chapters/04_results_tradeoffs/chapter4_results.md`.
+- Bản thảo: `chapters/04_results_tradeoffs/manuscript/chapter4_results.md`.
 
 Các script `build_chapter4_*` chỉ xử lý evidence đã lưu; chúng không thay thế một lần Spark benchmark mới.
 
