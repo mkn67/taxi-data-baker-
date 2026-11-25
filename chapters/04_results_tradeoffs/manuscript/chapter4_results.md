@@ -1,8 +1,19 @@
 # CHƯƠNG 4. KẾT QUẢ THỰC NGHIỆM VÀ PHÂN TÍCH ĐÁNH ĐỔI HIỆU NĂNG
 
-Chương này trình bày kết quả thực nghiệm và phân tích các đánh đổi hiệu năng của quy trình xử lý dữ liệu. Mục 4.1 mô tả môi trường và quy trình đo; mục 4.2 và 4.3 lần lượt phân tích hai bài toán ND2 (tổng hợp dữ liệu) và ND3 (kết nối phân tán); mục 4.4 kiểm chứng tính đúng đắn bằng DuckDB; mục 4.5 xem xét độ ổn định qua các tập dữ liệu tháng độc lập và kết quả tự động hóa ND4; mục 4.6 trình bày ứng dụng không gian mô tả của tầng Gold tại Manhattan; cuối cùng, mục 4.7 tổng hợp khuyến nghị kỹ thuật và mục 4.8 kết luận chương.
+Phiên S3 gồm 10 block ghép cặp là bằng chứng chính cho so sánh ND3. Các phiên theo tháng, S1–S3 bổ trợ, dữ liệu tổng hợp và lượt Airflow có phạm vi suy luận riêng. [Sổ thực nghiệm](../../../docs/refactor/01_experiment_registry.md) liên kết từng application với giao thức, Event Log và dữ liệu cấp lượt.
 
-Các bảng benchmark báo cáo trung vị và khoảng nhỏ nhất–lớn nhất theo từng phiên. Câu hỏi chính của phần mở rộng Phase C là **khi nào salting cải thiện phép nối bị lệch tải, và khi nào SMJ cơ sở, AQE hoặc chiến lược do Spark tự chọn đã đủ?** Phiên S3 ghép cặp 10 block trả lời cho workload NYC tích lũy. Lưới dữ liệu tổng hợp kiểm tra riêng ảnh hưởng của độ lệch khóa, kích thước bảng chiều và cấu hình. Quy ước trình bày dùng dấu phẩy cho phần thập phân, dấu chấm để nhóm hàng nghìn và 1 MiB = 1.048.576 byte.
+**Bảng 4.A. Tóm tắt phát hiện và phạm vi bằng chứng**
+
+| Phát hiện | Quan sát và bằng chứng | Giải thích trong phạm vi đã đo | Mục chi tiết |
+| --- | --- | --- | --- |
+| F1. Baseline GroupBy nhanh nhất trong ND2 | Tháng 01, trung vị Baseline 2,022 s, Selective 4,400 s, Uniform 4,859 s | Plan Baseline có tổng hợp cục bộ. Hai nhánh salting thêm khóa và bước gộp | 4.2, 4.5 |
+| F2. Chỉ số lệch task và wall-time có thể đi theo hai hướng | ND2 Selective giảm TSR 7,57 → 4,45 nhưng tăng wall-time. S3 Salting có tỷ số thời gian ghép cặp 1,161 | Cần đọc tỷ số theo vai trò của stage cùng chi phí shuffle và công việc executor | 4.2, 4.3, 4.7.2 |
+| F3. AQE thực hiện gộp phân vùng | Phiên S3 10 block có 10 plan AQE coalesced. Không quan sát skew split | Diễn giải theo node thực thi trong final plan | 4.3.3, 4.7.2 |
+| F4. Spark Auto Join có wall-time thấp nhất trên NYC S3 | 6,788 s với BroadcastHashJoin. SMJ 27,884 s. Tỷ số ghép cặp 0,244, KTC 95% [0,221–0,254] | Nhánh auto thay chiến lược join và giảm shuffle của phép nối. Kết quả mô tả phiên 10 block với chiều OD này | 4.7.2, 4.7.5 |
+| F5. Hiệu quả tương đối của các chiến lược join thay đổi theo workload | AQE có trung vị thấp nhất ở 12 ô synthetic v3. Salting có trung vị thấp hơn SMJ ở hai ô có bảng chiều lớn | Thiết kế thay đổi Zipf và dung lượng Parquet. Không suy ra hiệu năng của dữ liệu NYC từ lưới tổng hợp | 4.7.4–4.7.6 |
+| F6. Nhận diện và cập nhật hotspot phát sinh chi phí | P95 S3 mất 3,953 s ở action đầu. Jaccard trung vị của hai giờ liền kề trong tháng là 0,733 | Cộng chi phí nhận diện khi ước lượng cold start. Số liệu giờ là chẩn đoán độ ổn định của danh sách | 4.7.2–4.7.4 |
+| F7. ND4 chạy lại được trên cùng manifest | Hai phiên sau sửa warm-up hoàn tất sáu task Airflow và ghi 36 dòng OK/PASS | Kiểm tra khả năng chạy lại quy trình. Kết quả DuckDB kiểm chứng ở cấp phương án | 4.4–4.5 |
+| F8. Mật độ phía nam cao hơn phía bắc trong cả hai khung giờ | Trung vị theo Taxi Zone cao gấp 2,91 lần ban ngày và 2,57 lần ban đêm | So sánh mô tả theo hai nhóm zone của đường tham chiếu 60th Street | 4.6 |
 
 ## 4.1. Thiết lập môi trường và quy trình đo lường thực nghiệm
 
@@ -10,7 +21,7 @@ Các bảng benchmark báo cáo trung vị và khoảng nhỏ nhất–lớn nh�
 
 Thực nghiệm dùng cụm Apache Spark Standalone gồm Master, hai Worker và Driver, khởi chạy bằng Podman Compose trên cùng một máy vật lý. Các ứng dụng được báo cáo ghi nhận Spark 3.5.9 và hai Worker hoạt động. ND2/ND3 official tháng 01 dùng Silver tháng 01/2026; ND3 đọc OD gồm 58.747 cặp khóa duy nhất. Đợt ND3 S3 official dùng Silver tích lũy tháng 01–05/2026 (101.263.728 dòng) và OD gồm 63.572 composite key, có manifest riêng. Phiên đối chứng Spark tự chọn chiến lược join ngày 22/11 dùng lại đúng manifest S3 này, cùng hai Worker và cấu hình executor; phiên được báo riêng vì chạy ở application và thời điểm khác.
 
-**Bảng 4.1. Tài nguyên khai báo cho các dịch vụ trong cụm thực nghiệm**
+**Bảng 4.1. Tài nguyên khai báo và số core thực cấp theo phiên**
 
 | Thành phần | Giới hạn CPU | Bộ nhớ Spark được khai báo | Giới hạn bộ nhớ container |
 |---|---:|---:|---:|
@@ -19,13 +30,16 @@ Thực nghiệm dùng cụm Apache Spark Standalone gồm Master, hai Worker và
 | Spark Driver | 2 CPU | Không đặt heap riêng trong cấu hình Standalone được lưu | 2,5 GiB |
 | Airflow Standalone trong benchmark tháng 01 | 1,5 CPU | — | 2 GiB |
 | Airflow + Spark Driver trong ND4 tháng 03 | 2 CPU | Spark driver heap mặc định 1 GiB | 2,5 GiB |
-| Executor trong S3 official và S3 mở rộng | `spark.cores.max=4` (mức trần) | 2 executor thực cấp × 1 core × 1.500 MiB mỗi executor | — |
+| Executor trong hai phiên S3 bổ trợ | `spark.cores.max=4` (mức trần) | 2 executor thực cấp × 1 core × 1.500 MiB mỗi executor | — |
+| Executor trong Phase C S3 10 block | Không ghi tham số trần trong Event Log | 2 executor thực cấp × 2 core × 1.500 MiB mỗi executor | — |
 
 *Nguồn: cấu hình dịch vụ trong `docker-compose.yml` và siêu dữ liệu ứng dụng Spark của các lượt benchmark được báo cáo.*
 
-Các giá trị ở Bảng 4.1 là giới hạn được khai báo cho container và dung lượng Worker được cấp phép; đây không phải số liệu sử dụng CPU hay bộ nhớ đo trong từng ứng dụng. Metadata của cả S3 official (9/9 lượt) và S3 mở rộng (12/12 lượt) ghi nhận hai executor thực cấp, một core và 1.500 MiB cho mỗi executor, phân bố trên hai Worker. Vì vậy, `spark.cores.max=4` là mức trần được yêu cầu, không phải bốn core đã được cấp. Ở các lượt benchmark tháng 01, log ghi executor được cấp hai lõi và 1 GiB bộ nhớ. Airflow là dịch vụ phụ trợ, không tham gia thực thi task Spark; tuy nhiên, dịch vụ này cùng chia sẻ tài nguyên của máy chủ. Các giới hạn khai báo ở bảng này không dùng để suy ra mức sử dụng tài nguyên hay thông lượng mạng thực tế. Do hai Worker chạy trên cùng máy vật lý, kết quả cũng không đại diện trực tiếp cho cụm Spark nhiều máy giao tiếp qua mạng vật lý.
+Các giá trị ở Bảng 4.1 là giới hạn được khai báo cho container và dung lượng Worker được cấp phép; đây không phải số liệu sử dụng CPU hay bộ nhớ đo trong từng ứng dụng. Metadata của cả S3 official (9/9 lượt) và S3 mở rộng (12/12 lượt) ghi nhận hai executor thực cấp, một core và 1.500 MiB cho mỗi executor, phân bố trên hai Worker. Phase C 10 block ghi nhận hai executor, hai core mỗi executor trong sự kiện `SparkListenerExecutorAdded`. Trần `spark.cores.max=4` là tham số yêu cầu. Số core thực cấp được báo theo từng application. Ở các lượt benchmark tháng 01, log ghi executor được cấp hai lõi và 1 GiB bộ nhớ. Airflow là dịch vụ phụ trợ, không tham gia thực thi task Spark; tuy nhiên, dịch vụ này cùng chia sẻ tài nguyên của máy chủ. Các giới hạn khai báo ở bảng này không dùng để suy ra mức sử dụng tài nguyên hay thông lượng mạng thực tế. Do hai Worker chạy trên cùng máy vật lý, kết quả cũng không đại diện trực tiếp cho cụm Spark nhiều máy giao tiếp qua mạng vật lý.
 
 ![Hình 4.1 — Kiến trúc cụm Spark phục vụ thực nghiệm](../../../docs/assets/chapter4/figure_4_1_spark_topology.png)
+
+*Hình 4.1. Kiến trúc cụm Spark phục vụ thực nghiệm.*
 
 *Nguồn: Tác giả tổng hợp từ cấu hình cụm thực nghiệm. Driver gửi ứng dụng đến Master; Master cấp phát tài nguyên thực thi cho hai Worker. Spark REST API và Event Log cung cấp thông tin về tiến trình chạy, stage và task.*
 
@@ -390,7 +404,7 @@ Nghiên cứu của Zhang, Sang và Wu về dịch vụ gọi xe, giao thông c�
 
 ### 4.6.4. Trực quan hóa bằng bản đồ Kepler.gl
 
-Tệp Kepler.gl [`.gl`](../../../data/gold/dropoff_density_by_zone_period.gl) lưu dữ liệu và cấu hình để xem hai khung giờ tương tác. Tài liệu hiện chưa có ảnh chụp xác nhận giao diện Kepler.gl; Hình 4.7 là biểu đồ cột so sánh trung vị mật độ theo nhóm Taxi Zone, không phải bản đồ choropleth.
+Bản đồ [`nd5_kepler_map.json`](../../../data/gold/nd5/nd5_kepler_map.json) lưu cấu hình đa giác 3D cùng bộ lọc khung giờ, nhóm và Taxi Zone. Hình 5.1 ghi lại lớp đa giác 3D từ dữ liệu Gold tháng 01/2026. Hình 4.7 dùng để so sánh trung vị mật độ theo nhóm. Việc thao tác bộ lọc và tooltip cần kiểm tra trong bản đồ tương tác.
 
 ### 4.6.5. Giới hạn của phân tích mô tả
 
@@ -431,7 +445,7 @@ Salting thêm thao tác hash và nhân bản bảng chiều. Trong các phiên N
 
 ### 4.7.2. Kết quả 10 block ghép cặp trên NYC S3 và chi phí phát hiện hotspot
 
-Phiên chính Phase C ngày 23/11 (application `app-20261123043402-0000`) dùng 101.263.728 chuyến, 63.572 khóa OD, hai Worker và 1.500 MiB bộ nhớ mỗi executor. Bốn phương án hoàn tất đủ 10 block và đạt kiểm chứng theo mục 4.4.3. Lần thử 1.024 MiB dừng sau hai block khi tiến trình gắn với phiên bị kết thúc. Bảng dưới dùng riêng lượt đủ 10 block ở ngân sách 1.500 MiB.
+Phiên chính Phase C ngày 23/11 (application `app-20261123043402-0000`) dùng 101.263.728 chuyến và 63.572 khóa OD. Event Log ghi hai executor trên hai Worker, mỗi executor có hai core và cấu hình heap 1.500 MiB. Bốn phương án hoàn tất đủ 10 block và đạt kiểm chứng theo mục 4.4.3. Lần thử 1.024 MiB dừng sau hai block khi tiến trình gắn với phiên bị kết thúc. Bảng dưới dùng riêng lượt đủ 10 block ở ngân sách 1.500 MiB.
 
 **Bảng 4.17. Thời gian và công việc của executor trong phiên S3 10 block**
 
@@ -476,7 +490,7 @@ Lưới v3 dùng seed 20261123, ba mức Zipf (0, 1, 2) và bốn mức kích th
 
 ### 4.7.5. Kích thước broadcast quan sát được
 
-Đối chiếu Event Log của nhánh Spark tự chọn cho thấy 10/10 lượt NYC S3 ghi nhận `BroadcastExchange.data size` bằng 10.485.760 byte với 63.572 hàng OD. Trên lưới tổng hợp, 30/60 lượt tự chọn dùng broadcast, gồm toàn bộ lượt ở mức tiny và small. 30 lượt medium và large dùng SMJ. Bộ đếm SQL mô tả kích thước quan hệ broadcast do Spark ghi nhận. Byte truyền mạng và mức bộ nhớ đỉnh của executor cần phép đo riêng.
+Đối chiếu Event Log của nhánh Spark tự chọn cho thấy 10/10 lượt NYC S3 ghi nhận `BroadcastExchange.data size` bằng 10.485.760 byte với 63.572 hàng OD. Phép trích lấy lần cập nhật cuối của bộ đếm theo SQL execution ID và metric ID. Ngưỡng 10 MiB là tham số lựa chọn dựa trên thống kê trước khi thực thi, còn `data size` là bộ đếm khi thực thi. Hai đại lượng trùng giá trị ở phiên này. Trên lưới tổng hợp, 30/60 lượt tự chọn broadcast (toàn bộ tiny/small) và 30/60 lượt dùng SMJ (toàn bộ medium/large). Số byte truyền mạng và bộ nhớ đỉnh của executor cần phép đo riêng.
 
 **Bảng 4.19. Kích thước bảng chiều và quan hệ broadcast trên lưới tổng hợp**
 
@@ -521,6 +535,12 @@ Bảng 4.21 tóm lược các tín hiệu cần kiểm tra trước khi lựa ch
 | Join còn skew sau AQE và phía dimension có thể nhân bản | Thử Salting Join có giới hạn | OD tăng 24.899 hàng ở tháng 01 và 25.256 ở S3; Salting có thời gian và Shuffle Read cao hơn Baseline trong hai phạm vi đã đo | Đo số hàng và byte phát sinh, shuffle, spill, correctness; chỉ giữ khi lợi ích bù được chi phí |
 
 *Nguồn: tổng hợp và đề xuất của tác giả dựa trên các kết quả benchmark và kiểm toán trong chương; đây không phải ngưỡng quyết định đã được kiểm định độc lập.*
+
+### 4.7.8. Giới hạn của bằng chứng thực nghiệm
+
+Hai Worker cùng chạy trên một máy vật lý. Số liệu shuffle phản ánh trao đổi dữ liệu ở cấp ứng dụng. Đồ án chưa đo lưu lượng qua NIC vật lý, thời gian chờ lưu trữ xuyên suốt hay chi phí đám mây. Các cửa sổ telemetry host/cgroup chỉ có ở một số phiên, nên nguyên nhân chênh lệch giữa các phiên S2 vẫn chưa xác định. So sánh chính của ND3 giữ trong cùng phiên S3 10 block, với giới hạn tài nguyên và cỡ mẫu ở mục 4.7.2.
+
+AQE gộp phân vùng trong các final plan đã đối chiếu. Bằng chứng về chia phân vùng lệch tải hiện chưa có trong workload này. Các ô tổng hợp dùng cùng bộ sinh và cụm máy. Tầng Gold dùng Taxi Zone và đường tham chiếu xấp xỉ 60th Street để mô tả phân bố trong tháng 01/2026. Kết luận về tác động chính sách cần một thiết kế nghiên cứu riêng.
 
 ## 4.8. Tổng kết chương
 

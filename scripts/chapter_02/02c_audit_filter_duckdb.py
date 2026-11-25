@@ -1,76 +1,69 @@
+"""Independently reproduce the Silver sequential filter counts on January raw data."""
+
 import duckdb
 
-# Kết nối in-memory database của DuckDB
-con = duckdb.connect()
 
-# Câu lệnh SQL thực hiện Single-pass Scan đếm đồng thời 5 bước lọc
 sql = """
-SELECT 
+WITH projected AS (
+    SELECT *,
+           trip_miles / (NULLIF(trip_time, 0) / 3600.0) AS speed_mph
+    FROM read_parquet('data/raw/fhvhv_tripdata_2026-01.parquet')
+), rules AS (
+    SELECT
+        pickup_datetime IS NOT NULL AND dropoff_datetime IS NOT NULL
+            AND PULocationID IS NOT NULL AND DOLocationID IS NOT NULL
+            AND trip_miles IS NOT NULL AND trip_time IS NOT NULL
+            AND base_passenger_fare IS NOT NULL AS required_fields,
+        PULocationID BETWEEN 1 AND 263
+            AND DOLocationID BETWEEN 1 AND 263 AS valid_zones,
+        dropoff_datetime > pickup_datetime AND trip_time > 0
+            AND trip_miles > 0 AS valid_trip,
+        base_passenger_fare > 0 AND base_passenger_fare <= 500 AS valid_fare,
+        trip_time <= 14400 AND trip_miles <= 100
+            AND speed_mph <= 80 AS within_limits
+    FROM projected
+)
+SELECT
     COUNT(*) AS n0,
-    -- c1: NOT NULL ở các cột thuộc tính bắt buộc
-    COUNT(*) FILTER (WHERE pickup_datetime IS NOT NULL 
-                       AND dropoff_datetime IS NOT NULL 
-                       AND PULocationID IS NOT NULL 
-                       AND DOLocationID IS NOT NULL 
-                       AND trip_miles IS NOT NULL 
-                       AND base_passenger_fare IS NOT NULL) AS n1,
-    -- c2: c1 VÀ Mã vùng hợp lệ [1, 263]
-    COUNT(*) FILTER (WHERE pickup_datetime IS NOT NULL 
-                       AND dropoff_datetime IS NOT NULL 
-                       AND PULocationID BETWEEN 1 AND 263 
-                       AND DOLocationID BETWEEN 1 AND 263 
-                       AND trip_miles IS NOT NULL 
-                       AND base_passenger_fare IS NOT NULL) AS n2,
-    -- c3: c2 VÀ Thời gian / Quãng đường mang giá trị dương
-    COUNT(*) FILTER (WHERE pickup_datetime IS NOT NULL 
-                       AND dropoff_datetime IS NOT NULL 
-                       AND PULocationID BETWEEN 1 AND 263 
-                       AND DOLocationID BETWEEN 1 AND 263 
-                       AND epoch(dropoff_datetime) - epoch(pickup_datetime) > 0 
-                       AND trip_miles > 0 
-                       AND base_passenger_fare IS NOT NULL) AS n3,
-    -- c4: c3 VÀ Cước cơ sở hợp lệ (0, 500] USD
-    COUNT(*) FILTER (WHERE pickup_datetime IS NOT NULL 
-                       AND dropoff_datetime IS NOT NULL 
-                       AND PULocationID BETWEEN 1 AND 263 
-                       AND DOLocationID BETWEEN 1 AND 263 
-                       AND epoch(dropoff_datetime) - epoch(pickup_datetime) > 0 
-                       AND trip_miles > 0 
-                       AND base_passenger_fare > 0 AND base_passenger_fare <= 500) AS n4,
-    -- c5: c4 VÀ Giới hạn ngoại lai cực đại (time <= 4h, miles <= 100, v <= 80 mph)
-    COUNT(*) FILTER (WHERE pickup_datetime IS NOT NULL 
-                       AND dropoff_datetime IS NOT NULL 
-                       AND PULocationID BETWEEN 1 AND 263 
-                       AND DOLocationID BETWEEN 1 AND 263 
-                       AND (epoch(dropoff_datetime) - epoch(pickup_datetime)) BETWEEN 1 AND 14400 
-                       AND trip_miles > 0 AND trip_miles <= 100 
-                       AND (trip_miles / ((epoch(dropoff_datetime) - epoch(pickup_datetime)) / 3600.0)) <= 80.0
-                       AND base_passenger_fare > 0 AND base_passenger_fare <= 500) AS n5
-FROM 'data/raw/fhvhv_tripdata_2026-01.parquet';
+    COUNT(*) FILTER (WHERE required_fields) AS n1,
+    COUNT(*) FILTER (WHERE required_fields AND valid_zones) AS n2,
+    COUNT(*) FILTER (WHERE required_fields AND valid_zones AND valid_trip) AS n3,
+    COUNT(*) FILTER (WHERE required_fields AND valid_zones AND valid_trip
+                     AND valid_fare) AS n4,
+    COUNT(*) FILTER (WHERE required_fields AND valid_zones AND valid_trip
+                     AND valid_fare AND within_limits) AS n5
+FROM rules
 """
 
-print("Đang quét dữ liệu thô bằng DuckDB...")
-res = con.execute(sql).fetchone()
-n = list(res)
-n0 = n[0]
-
-labels = [
+labels = (
     "Loại null ở các trường bắt buộc",
     "Loại mã vùng ngoài [1, 263]",
-    "Loại thời gian/quãng đường không dương hoặc timestamp không hợp lệ",
+    "Giữ timestamp tăng, thời lượng và quãng đường dương",
     "Giới hạn cước cơ sở trong (0, 500] USD",
-    "Loại giá trị cực đại vượt ngưỡng thời gian, quãng đường hoặc vận tốc"
-]
+    "Giới hạn trên của thời lượng, quãng đường và vận tốc",
+)
 
-print("\n| Bước | Quy tắc lọc | Số dòng còn lại | Số dòng bị loại thêm | Tỷ lệ loại trên tập gốc |")
-print("| :---: | :--- | :---: | :---: | :---: |")
-print(f"| 0 | Dữ liệu gốc đầu vào | {n0:,} | — | 0,00% |")
 
-for i in range(1, 6):
-    dropped = n[i-1] - n[i]
-    pct = (dropped / n0) * 100
-    print(f"| {i} | {labels[i-1]} | {n[i]:,} | {dropped:,} | {pct:.3f}% |")
+def main():
+    with duckdb.connect() as connection:
+        counts = connection.execute(sql).fetchone()
 
-total_dropped = n0 - n[5]
-total_pct = (total_dropped / n0) * 100
-print(f"| **Tổng** | **Tập Silver sau tiền xử lý** | **{n[5]:,}** | **{total_dropped:,}** | **{total_pct:.3f}%** |\n")
+    raw_count = counts[0]
+    if not raw_count:
+        raise ValueError("Tập dữ liệu gốc rỗng")
+
+    print("| Bước | Quy tắc lọc | Số dòng còn lại | Số dòng bị loại thêm | Tỷ lệ loại trên tập gốc |")
+    print("| --- | --- | ---: | ---: | ---: |")
+    print(f"| 0 | Dữ liệu gốc đầu vào | {raw_count:,} | — | 0.000% |")
+
+    for step, label in enumerate(labels, start=1):
+        dropped = counts[step - 1] - counts[step]
+        print(f"| {step} | {label} | {counts[step]:,} | {dropped:,} | {dropped / raw_count:.3%} |")
+
+    total_dropped = raw_count - counts[-1]
+    print(f"| **Tổng** | **Silver theo điều kiện pipeline** | **{counts[-1]:,}** | "
+          f"**{total_dropped:,}** | **{total_dropped / raw_count:.3%}** |")
+
+
+if __name__ == "__main__":
+    main()

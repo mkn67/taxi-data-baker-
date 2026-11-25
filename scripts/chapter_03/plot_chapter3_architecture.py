@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Create Chapter 3 pipeline and Spark cluster architecture figures."""
+import argparse
 from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
@@ -26,7 +27,7 @@ def arrow(ax, start, end, *, color="#506575", style="-|>", lw=1.5, rad=0):
                                  connectionstyle=f"arc3,rad={rad}"))
 
 
-def pipeline_figure():
+def pipeline_figure(output_dir):
     fig, ax = plt.subplots(figsize=(14, 8))
     ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
     box(ax, (0.035, .69), (.17, .16), "HVFHV raw\nParquet tháng 01/2026", fc="#f4f4f4")
@@ -45,18 +46,20 @@ def pipeline_figure():
     box(ax, (.58, .18), (.18, .21), "Spatial density branch\nDuckDB aggregation +\nGeoPandas / Taxi Zones\nGold + map artifacts", fc="#e9f4f3", ec="#3b7772")
     arrow(ax, (.48, .30), (.58, .30))
     box(ax, (.035, .21), (.17, .18), "Taxi Zone\nshapefile", fc="#f4f4f4")
-    arrow(ax, (.205, .30), (.29, .30))
+    arrow(ax, (.12, .21), (.12, .12))
+    arrow(ax, (.12, .12), (.67, .12), style="-")
+    arrow(ax, (.67, .12), (.67, .18))
     box(ax, (.82, .22), (.15, .18), "Audit CSVs, plans,\nbenchmark summaries,\nGold GeoParquet/CSV", fc="#f4eafa", ec="#74518c")
     arrow(ax, (.76, .29), (.82, .29))
     ax.text(.5, .96, "Hình 3.1 — Kiến trúc pipeline và luồng dữ liệu Chương 3",
             ha="center", va="center", fontsize=15, weight="bold")
-    ax.text(.5, .08, "ND2/ND3 là các workload Spark; nhánh spatial dùng DuckDB/GeoPandas, không phải Spark.",
+    ax.text(.5, .045, "Spark thực thi ND2 và ND3. DuckDB và GeoPandas xây dựng dữ liệu Gold không gian.",
             ha="center", fontsize=10, color="#444")
-    fig.savefig(OUT / "chapter3_pipeline_architecture.png", dpi=180, bbox_inches="tight")
+    fig.savefig(output_dir / "chapter3_pipeline_architecture.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
-def cluster_figure():
+def cluster_figure(output_dir):
     fig, ax = plt.subplots(figsize=(11, 6.5))
     ax.set_xlim(0, 1); ax.set_ylim(0, 1); ax.axis("off")
     box(ax, (.34, .78), (.32, .13), "Spark Master\nQuản lý ứng dụng và cấp phát tài nguyên", fc="#e7f1fb")
@@ -67,20 +70,23 @@ def cluster_figure():
     arrow(ax, (.57, .78), (.68, .65))
     arrow(ax, (.40, .27), (.28, .43), color="#9b6c27")
     arrow(ax, (.60, .27), (.72, .43), color="#9b6c27")
-    ax.text(.5, .96, "Hình 3.2 — Topology Spark Standalone được khai báo trong Docker Compose",
+    ax.text(.5, .96, "Hình 3.2 — Cấu trúc Spark Standalone triển khai bằng Podman Compose",
             ha="center", va="center", fontsize=14, weight="bold")
     ax.text(.5, .025, "Sơ đồ mô tả cấu hình; cần executor/worker evidence của từng application để xác nhận lần chạy thực tế.",
             ha="center", fontsize=9, color="#444")
-    fig.savefig(OUT / "chapter3_spark_topology.png", dpi=180, bbox_inches="tight")
+    fig.savefig(output_dir / "chapter3_spark_topology.png", dpi=180, bbox_inches="tight")
     plt.close(fig)
 
 
 def main():
-    OUT.mkdir(parents=True, exist_ok=True)
-    pipeline_figure()
-    cluster_figure()
-    print(OUT / "chapter3_pipeline_architecture.png")
-    print(OUT / "chapter3_spark_topology.png")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output-dir", type=Path, default=OUT)
+    output_dir = parser.parse_args().output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    pipeline_figure(output_dir)
+    cluster_figure(output_dir)
+    print(output_dir / "chapter3_pipeline_architecture.png")
+    print(output_dir / "chapter3_spark_topology.png")
 
 if __name__ == "__main__":
     main()
