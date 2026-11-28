@@ -1,6 +1,6 @@
 # Chương 4 — Kết quả thực nghiệm và phân tích đánh đổi
 
-[**Kế hoạch và trạng thái Chương 4 theo mục 4.1–4.8**](planning/plan_chuong_4.md)
+[**Kế hoạch tổng hợp DETOUR và trạng thái Chương 4**](../../docs/refactor/00_plan_tong_hop_detour.md)
 
 [**Bản thảo Chương 4 (Markdown)**](manuscript/chapter4_results.md) · [**Bản Word**](manuscript/chapter4_results.docx)
 

@@ -16,6 +16,7 @@
 
 ## 28/11/2026
 
+- Gộp các plan Phase C, Chương 4 và bổ sung paper vào `00_plan_tong_hop_detour.md`, giữ nội dung cũ trong phụ lục lịch sử; giữ protocol, audit, dữ liệu gốc và đề xuất MLlib riêng.
 - Sắp xếp script Chương 3 theo `analysis/` và `supplement_audit/`; 17 script được di chuyển nguyên byte. Chuyển mã tạo Hình 3.4 vào notebook artifact checks, dùng thư mục output riêng và bỏ script trùng ở thư mục gốc. Runner ND2/ND3, DAG, data, logs và manifest lịch sử không đổi; đường dẫn thực thi mới được ghi ở README.
 - Chạy diagnostic cùng plan 16 action qua terminal Fedora, audit Event Log, correctness, config, plan và task; bổ sung mô tả và giới hạn vào Chương 3–4 Markdown và bản thảo paper. Chi tiết `19_same_plan_diagnostic_8blocks_20261128.md`; chưa xuất Word/PDF mới.
 - Pilot cùng plan hoàn thành 4 action tại `app-20261128075314-0003`; audit plan, output, stage và I/O tại `18_same_plan_noise_pilot_20261128.md`. Chuẩn bị diagnostic 8 block, chưa chạy và không gộp pilot.

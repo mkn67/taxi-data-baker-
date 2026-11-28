@@ -158,7 +158,7 @@ Benchmark official và benchmark tháng 02–05 cần đúng volume, dependencie
 | Hướng dẫn notebook | [notebooks/README.md](notebooks/README.md) |
 | Scripts theo chương | [scripts/README.md](scripts/README.md) |
 | Bản thảo và audit Chương 3 | [chapters/03_pipeline_skew_benchmarks/README.md](chapters/03_pipeline_skew_benchmarks/README.md) |
-| Kế hoạch viết Chương 4 | [chapters/04_results_tradeoffs/planning/plan_chuong_4.md](chapters/04_results_tradeoffs/planning/plan_chuong_4.md) |
+| Kế hoạch tổng hợp DETOUR | [docs/refactor/00_plan_tong_hop_detour.md](docs/refactor/00_plan_tong_hop_detour.md) |
 | Tổ chức tài liệu Chương 1–5 | [chapters/README.md](chapters/README.md) |
 
 ## Bản đồ theo 4 nội dung đồ án

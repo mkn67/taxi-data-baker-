@@ -85,7 +85,7 @@ Phân tích có thể tái tạo bằng [`analyze_phase_c_supplement_confirmatio
 
 ## Tệp liên quan
 
-- Kế hoạch: [`08_paper_supplement_plan.md`](08_paper_supplement_plan.md)
+- Kế hoạch: [kế hoạch tổng hợp DETOUR](00_plan_tong_hop_detour.md), có lưu nội dung kế hoạch bổ sung ban đầu trong phụ lục.
 - Kết quả hiện có: [`chapter4_results.md`](../../chapters/04_results_tradeoffs/manuscript/chapter4_results.md)
 - Kiểm toán bằng chứng: [`02_evidence_audit.md`](02_evidence_audit.md)
 - Audit confirmation, stage và giới hạn: [`10_confirmation_evidence_audit.md`](10_confirmation_evidence_audit.md)
