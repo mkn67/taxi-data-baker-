@@ -10,6 +10,8 @@
 
 Notebook dùng runner và dữ liệu trong `scripts/chapter_03/` và `data/`. Mở/chạy từ môi trường project. `notebooks/logs/` giữ Spark event logs đã được cấu hình cho notebook; không phải notebook hoặc dữ liệu đầu vào.
 
+Trong notebook `04`, mã thống kê và vẽ Hình 3.4 nằm trực tiếp ở ô tương ứng, có thể đọc và sửa từng bước. Đầu ra mặc định ở `data/benchmarks/notebook_runs/artifact_checks/`, tách khỏi hình/bảng của báo cáo; các ô còn lại vẫn gọi script riêng. Không chạy toàn bộ notebook khi chỉ muốn xem kết quả đã lưu.
+
 Hai notebook benchmark đã được đặt mặc định ở chế độ pilot; các output đã lưu từ lần chạy cũ được xóa để tránh nhầm đường dẫn/kết quả local cũ với artifacts hiện tại. Khi chạy, notebook ghi riêng dưới `data/benchmarks/notebook_runs/`; runner CLI chính thức vẫn dùng các tệp tier ở `data/benchmarks/`.
 
 Xem [bản đồ mã nguồn và artifact theo Nội dung 1–4](../docs/project_map_content_1_to_4.md) để biết trạng thái triển khai và đầu ra tương ứng.

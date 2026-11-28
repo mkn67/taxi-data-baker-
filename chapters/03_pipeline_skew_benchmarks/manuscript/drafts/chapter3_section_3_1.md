@@ -4,9 +4,9 @@
 
 Nghiên cứu tổ chức dữ liệu theo luồng từ dữ liệu chuyến đi thô đến hai nhánh phân tích. Ở lớp đầu vào, dữ liệu HVFHV tháng 01/2026 được làm sạch và lưu thành các tệp Parquet Silver. Tập Silver này là đầu vào thống nhất cho hai thực nghiệm Spark: ND2 tổng hợp theo vùng đón khách (`PULocationID`), còn ND3 nối chuyến đi với bảng chiều ma trận nguồn–đích (OD) theo cặp (`PULocationID`, `DOLocationID`). Bảng OD cung cấp thuộc tính vùng cho từng cặp, từ đó kết quả join có thể được tổng hợp theo cặp quận nguồn–đích. Danh sách vùng đón khách nóng được tính từ phân bố số chuyến theo `PULocationID` và được dùng nhất quán trong nhánh Selective Salting của ND2 và Salting Join của ND3.
 
-![Hình 3.1 — Sơ đồ kiến trúc và luồng dữ liệu](../../../data/benchmarks/chapter3_pipeline_architecture.png)
+![Hình 3.1 — Sơ đồ kiến trúc và luồng dữ liệu](../../../../data/benchmarks/chapter3_pipeline_architecture.png)
 
-![Hình 3.2 — Topology Spark Standalone được khai báo](../../../data/benchmarks/chapter3_spark_topology.png)
+![Hình 3.2 — Topology Spark Standalone được khai báo](../../../../data/benchmarks/chapter3_spark_topology.png)
 
 Trong ND2, Spark phân phối các bản ghi theo khóa tổng hợp. Baseline thực hiện `groupBy(PULocationID)`; hai phương án salting tạo khóa trung gian `(PULocationID, salt)`, tổng hợp từng nhóm con rồi gộp lại theo `PULocationID`. Trong ND3, dữ liệu chuyến được join với OD dimension trên hai khóa vùng. Ba nhánh được so sánh là Sort-Merge Join cơ sở, Sort-Merge Join có AQE skew handling và Salting Join với số salt bằng 8. Việc materialize kết quả buộc Spark thực thi phép biến đổi trước khi thu các bảng tổng hợp nhỏ về driver.
 
@@ -34,7 +34,7 @@ Ký hiệu **H** dùng cho tập khóa nóng pickup được chọn bằng ngư�
 
 Cách lấy mọi khóa bằng hoặc lớn hơn ngưỡng giữ lại các trường hợp đồng hạng tại P95. Với Silver hiện có, audit độc lập ghi nhận 261 nhóm pickup khác null, `T95 = 194.522` chuyến và 14 khóa thuộc H: 7, 37, 61, 76, 79, 112, 132, 138, 161, 181, 230, 231, 234 và 255. Đây là tiêu chí vận hành được dùng trong thí nghiệm này, không phải một ngưỡng phổ quát cho mọi bộ dữ liệu.
 
-![Hình 3.3 — Phân bố chuyến theo PULocationID và ngưỡng P95](../../../data/benchmarks/figure_3_3_pickup_p95_hotspots.png)
+![Hình 3.3 — Phân bố chuyến theo PULocationID và ngưỡng P95](../../../../data/benchmarks/figure_3_3_pickup_p95_hotspots.png)
 
 *Hình 3.3. Số chuyến theo khóa pickup, ngưỡng `T95` và các khóa thuộc H. Nguồn: artifact P95 tháng 01/2026 của đồ án. Hình mô tả tần suất khóa nghiệp vụ, không phải thời lượng task Spark.*
 
@@ -71,9 +71,9 @@ Các biến được giữ cố định trong mỗi bộ so sánh gồm tập Si
 
 Đợt benchmark theo tháng dùng năm tập dữ liệu độc lập từ 01 đến 05/2026, không phải các tập tích lũy. Cần phân biệt **raw** và **Silver**: raw là tệp Parquet đầu vào trước bước làm sạch; Silver là dữ liệu đã qua tiền xử lý và mới là đầu vào của benchmark ND2/ND3. Số dòng và dung lượng raw chỉ mô tả quy mô dữ liệu nguồn, không phải kích thước đầu vào benchmark. Mỗi tháng được làm sạch bằng cùng quy tắc để tạo Silver, tính lại hotspot P95 nearest-rank từ Silver tháng đó, và tạo OD dimension tháng tương ứng cho ND3. Cùng cấu hình Spark 3.5.9 Standalone, hai Worker, 200 shuffle partitions và ba lượt đo mỗi phương án được giữ cố định. ND2 có action warm-up, ND3 official cũ không có job warm-up. Mỗi tháng chạy đủ ba nhánh ND2 và ba nhánh ND3. Có 90 dòng metadata lượt đo ghi collector `OK` và trạng thái validation cấp phương án `PASS`, cùng worker evidence cho `spark-worker-1` và `spark-worker-2`. Trạng thái validation được tạo từ phép đối soát kết quả cuối của từng phương án trong một ứng dụng rồi gán cho các dòng lượt đo cùng phương án; vì vậy đây không phải 90 phép đối soát độc lập.
 
-![Hình 3.4 — Quy mô dữ liệu raw theo tháng](../../../data/benchmarks/figure_3_4_data_scale.png)
+![Hình 3.4 — Quy mô dữ liệu raw theo tháng](../../../../data/benchmarks/figure_3_4_data_scale.png)
 
-![Hình 3.5 — Thời gian benchmark ND2/ND3 theo tháng](../../../data/benchmarks/figure_3_5_benchmark_scaling.png)
+![Hình 3.5 — Thời gian benchmark ND2/ND3 theo tháng](../../../../data/benchmarks/figure_3_5_benchmark_scaling.png)
 
 Hình 3.4 mô tả kích thước tệp raw và số dòng raw; Hình 3.5 trình bày thời gian trung vị theo phương án, với độ lệch chuẩn của ba lượt đo. Kết quả cho thấy trên cả năm tháng, ND2 baseline có thời gian thấp hơn hai phương án salting; selective salting giảm shuffle write so với uniform salting nhưng chi phí tổng hợp hai giai đoạn vẫn làm thời gian cao hơn baseline. Với ND3, salting có median wall time cao nhất ở cả năm tháng. AQE gần baseline nhưng có memory spill median 480–600 MiB và disk spill median khoảng 128–161 MiB; các final plan ghi nhận AQE coalescing nhưng không có skew-specific partition split. Đây là mô tả kết quả trong benchmark hiện tại, không phải khẳng định ưu thế tổng quát.
 

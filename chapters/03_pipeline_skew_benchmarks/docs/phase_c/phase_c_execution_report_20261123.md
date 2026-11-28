@@ -28,7 +28,7 @@ To reproduce the extraction from the repository root, use a new output path:
 
 ```bash
 phase_c_dir=data/benchmarks/phase_c
-python scripts/chapter_03/extract_phase_c_broadcast.py --logs logs/spark-events \
+python scripts/chapter_03/analysis/extract_phase_c_broadcast.py --logs logs/spark-events \
   --runs "$phase_c_dir"/s3_10block_20261123/retry_1500m/*_runs_*.csv \
          "$phase_c_dir"/synthetic_grid_v3_20261123/*/*_runs_*.csv \
   --output "$phase_c_dir"/decision_v3_final_20261123/broadcast_exchange_metrics_rerun.csv
@@ -40,14 +40,14 @@ The sensitivity protocol JSON contains an old v2 dimension-path label. The obser
 
 ## Hourly hotspot analysis details
 
-The added script is [`analyze_hotspot_hourly_stability.py`](../../../../scripts/chapter_03/analyze_hotspot_hourly_stability.py). It uses the timezone-naive hour component of Silver `pickup_datetime`, counts non-null `(PULocationID, pickup hour)` observations, and selects all zones at or above the exact nearest-rank P95 threshold separately for each month-hour. For every set it records zone support, threshold, trip share and IDs, plus Jaccard against the preceding hour and the same hour of the previous listed month.
+The added script is [`analyze_hotspot_hourly_stability.py`](../../../../scripts/chapter_03/analysis/analyze_hotspot_hourly_stability.py). It uses the timezone-naive hour component of Silver `pickup_datetime`, counts non-null `(PULocationID, pickup hour)` observations, and selects all zones at or above the exact nearest-rank P95 threshold separately for each month-hour. For every set it records zone support, threshold, trip share and IDs, plus Jaccard against the preceding hour and the same hour of the previous listed month.
 
 Across the five months, each pickup hour has 256–260 zones with non-null trips. The hourly P95 set covers 12.92–26.07% of trips within an hour (median of monthly-hour values: 15.63%). The median within-month adjacent-hour Jaccard is 0.733 (range 0.444–1.000), while the median same-hour adjacent-month Jaccard is 0.857. This supports the practical warning that a static monthly list may not represent every hour equally. It does **not** show that hour-specific salting reduces runtime; that would require a separately designed and correctness-checked benchmark branch.
 
 ## Reproduction commands
 
 ```bash
-./.venv/bin/python scripts/chapter_03/analyze_hotspot_hourly_stability.py
+./.venv/bin/python scripts/chapter_03/analysis/analyze_hotspot_hourly_stability.py
 ```
 
 The command writes new files under `data/benchmarks/phase_c/hotspot_stability_hourly/` and will stop if that output directory already exists. Choose a new `--output` path to rerun without overwriting the saved evidence.

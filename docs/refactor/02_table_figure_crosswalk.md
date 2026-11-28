@@ -25,7 +25,7 @@ ID phiên tra tại [sổ thực nghiệm](01_experiment_registry.csv). Hình mi
 | B4.4–4.6, H4.3 | E1.02, E3.09 và `chapter4_evidence/nd3_january_summary.csv` | Jan và S3 ba nhánh, tách phiên. H4.3 dùng Jan, min–max 3 lượt | Hai script Chương 4 như dòng trên |
 | B4.7–4.8 | E1.02/E3.08–09, E4.01 và `chapter4_evidence/od_key_preflight.csv` | Cơ chế đọc từ physical plan; hàng OD trước/sau explode | Runner ND3 và audit OD |
 | B4.9–4.10 | `chapter4_evidence/duckdb_january_correctness.csv`, `official_run_validity_jan_may.csv` | Sai khác trên nhóm trong audit cấp phương án; số dòng run collector/audit hợp lệ | `build_chapter4_evidence.py` |
-| B4.11 | Parquet Raw/Silver tháng 01–05 | Số hàng, MiB và ngày theo scope | `plot_figure_3_4_data_scale.py`, `build_chapter4_remaining.py` |
+| B4.11 | Parquet Raw/Silver tháng 01–05 | Số hàng, MiB và ngày theo scope | Hình 3.4: `notebooks/chapter_03/04_chapter3_artifact_checks.ipynb`; bảng: `build_chapter4_remaining.py`. Hình lịch sử được tạo bởi `plot_figure_3_4_data_scale.py` trước khi chuyển vào notebook. |
 | B4.12, H4.4 | E7.03–04 | Clean Airflow, median và min–max ba lượt, giây | `build_nd4_march_artifacts.py`, ảnh tập trung `docs/assets/chapter4/` |
 | B4.13 | E7.05–08 | Hai repeat Airflow, median và min–max từng phiên | CSV cấp lượt và `02_canonical_method_summary.csv` |
 | H4.5–4.6 | E1 và E2.01–08 | Median, min–max 3 lượt/tháng/phương án, giây. Tháng 01 chạy lại 03/11, tháng 02–05 đo 30/10 | `build_chapter4_remaining.py` |

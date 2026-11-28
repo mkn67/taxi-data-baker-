@@ -4,6 +4,8 @@
 
 > **Trạng thái đồ án:** Chương 1–3 đã có artifacts; Chương 4 có bản thảo đầy đủ các mục 4.1–4.8; ND4 tháng 03 đã chạy toàn DAG Airflow thành công ngày 20/11/2026. Kết quả ND4 được lưu riêng, không trộn với chuỗi benchmark tháng 01–05 trước đó. Chương 5 chưa hoàn thiện.
 
+**Tìm nhanh:** [Bản đồ project](chapters/README.md) · [Bản thảo Chương 3](chapters/03_pipeline_skew_benchmarks/manuscript/chapter3_complete.md) · [Bản thảo Chương 4](chapters/04_results_tradeoffs/manuscript/chapter4_results.md) · [Báo cáo và hồ sơ nghiên cứu](docs/refactor/README.md) · [Scripts ND2/ND3 và Phase C](scripts/chapter_03/README.md).
+
 ## Bài toán
 
 Khi dữ liệu chuyến tập trung ở một số vùng, các task Spark có thể nhận khối lượng không đều. Project triển khai và đo hai workload:

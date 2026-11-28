@@ -102,7 +102,7 @@ Official full ND3 runs have completed for independent monthly Silver and OD dime
 | [x] | Tạo Kepler.gl v1 JSON `.gl` nhúng hai layer Daytime/Nighttime và viết diễn giải kết quả cùng giới hạn mô tả tại `docs/chapter3_spatial_research_notes.md`; cấu trúc JSON được validate, nhưng chưa visually QA trong UI Kepler.gl. |
 | [x] | Bổ sung nghiên cứu liên quan và trích dẫn bối cảnh CRZ tại `docs/chapter3_spatial_research_notes.md`, gồm nguồn MTA/NY Open Data và NBER. |
 | **3.7 — Tổng kết chương** | |
-| [x] | Đã viết tổng kết dựa trên benchmark và Gold spatial tại mục 3.7 của `manuscript/chapter3_sections_3_2_to_3_5.md`; nêu giới hạn và không suy diễn nhân quả. |
+| [x] | Đã viết tổng kết dựa trên benchmark và Gold spatial tại mục 3.7 của `manuscript/drafts/chapter3_sections_3_2_to_3_5.md`; nêu giới hạn và không suy diễn nhân quả. |
 
 Các ô `[x]` đánh dấu artifact/mã đã có trong repository; chúng không đồng nghĩa benchmark chính thức đã hoàn thành. Hash manifest benchmark bao gồm đường dẫn Parquet tương đối, kích thước tệp và modification time, không phải checksum nội dung.
 

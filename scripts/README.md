@@ -29,7 +29,7 @@ Ví dụ: `python scripts/chapter_02/02_preprocess_and_audit.py`.
 - ND3: `chapter_03/run_benchmark_nd3.py` (Baseline SMJ, AQE, Salting Join).
 - Engine dùng chung: `chapter_03/benchmark_engine.py`.
 - Scaling tháng độc lập: `chapter_03/run_monthly_scaling_benchmarks.sh`.
-- Hình quy mô input Raw theo tháng: `chapter_03/plot_figure_3_4_data_scale.py`.
+- Hình quy mô input Raw theo tháng: ô Hình 3.4 trong `notebooks/chapter_03/04_chapter3_artifact_checks.ipynb`.
 - Spatial Gold và Kepler: `chapter_03/build_spatial_gold.py`, `chapter_03/build_kepler_spatial_artifact.py`.
 - Tạo/kiểm tra notebook: `chapter_03/generate_notebooks.py`, `chapter_03/test_notebook_execution.py`.
 

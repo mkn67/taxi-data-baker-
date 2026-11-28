@@ -25,7 +25,7 @@ S1 pilot ba lượt có thứ tự trung vị Broadcast < AQE ≈ Baseline < Sal
 
 ## Đối chiếu pilot S1–S2 cho ND2 và ND3
 
-ND2 S1 được chạy lại với runner hiện tại (`app-20261121091217-0006`), một action warm-up và ba lượt đo/phương án; ND2 S2 dùng ứng dụng `app-20261121090936-0005` với cùng cấu hình. Cả 9/9 lượt ND2 S2 có collector `OK`, DuckDB `PASS` và hai Worker; S1 cũng đạt audit tương ứng. Bảng dưới được tạo bằng `scripts/chapter_03/compare_s1_s2_pilots.py`, đầu ra `data/benchmarks/scaling/s2_jan_mar/s1_s2_pilot_comparison.csv`. Script yêu cầu mỗi phương án có đúng ba iteration, một application và một manifest ở mỗi mức, tier `pilot_standalone`, tất cả run `OK/PASS` và hai Worker.
+ND2 S1 được chạy lại với runner hiện tại (`app-20261121091217-0006`), một action warm-up và ba lượt đo/phương án; ND2 S2 dùng ứng dụng `app-20261121090936-0005` với cùng cấu hình. Cả 9/9 lượt ND2 S2 có collector `OK`, DuckDB `PASS` và hai Worker; S1 cũng đạt audit tương ứng. Bảng dưới được tạo bằng `scripts/chapter_03/analysis/compare_s1_s2_pilots.py`, đầu ra `data/benchmarks/scaling/s2_jan_mar/s1_s2_pilot_comparison.csv`. Script yêu cầu mỗi phương án có đúng ba iteration, một application và một manifest ở mỗi mức, tier `pilot_standalone`, tất cả run `OK/PASS` và hai Worker.
 
 | Bài toán | Phương án | S1 trung vị [min–max] (s) | S2 trung vị [min–max] (s) | S2/S1 trung vị |
 |---|---|---:|---:|---:|

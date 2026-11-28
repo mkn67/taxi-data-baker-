@@ -8,9 +8,9 @@ Phiên S3 gồm 10 block ghép cặp là bằng chứng chính cho so sánh ND3.
 | --- | --- | --- | --- |
 | F1. Baseline GroupBy nhanh nhất trong ND2 | Tháng 01, trung vị Baseline 2,022 s, Selective 4,400 s, Uniform 4,859 s | Plan Baseline có tổng hợp cục bộ. Hai nhánh salting thêm khóa và bước gộp | 4.2, 4.5 |
 | F2. Chỉ số lệch task và wall-time có thể đi theo hai hướng | ND2 Selective giảm TSR 7,57 → 4,45 nhưng tăng wall-time. S3 Salting có tỷ số thời gian ghép cặp 1,161 | Cần đọc tỷ số theo vai trò của stage cùng chi phí shuffle và công việc executor | 4.2, 4.3, 4.7.2 |
-| F3. AQE thực hiện gộp phân vùng | Phiên S3 10 block có 10 plan AQE coalesced. Không quan sát skew split | Diễn giải theo node thực thi trong final plan | 4.3.3, 4.7.2 |
+| F3. AQE gộp phân vùng và có thể chia skew khi đủ điều kiện | Phiên S3 10 block coalesced, không quan sát split; phiên synthetic 10M bổ sung có split 8/8 ở nhánh C | Diễn giải theo node thực thi trong final plan của từng workload | 4.3.3, 4.7.2, 4.7.4.1 |
 | F4. Spark Auto Join có wall-time thấp nhất trên NYC S3 | 6,788 s với BroadcastHashJoin. SMJ 27,884 s. Tỷ số ghép cặp 0,244, KTC 95% [0,221–0,254] | Nhánh auto thay chiến lược join và giảm shuffle của phép nối. Kết quả mô tả phiên 10 block với chiều OD này | 4.7.2, 4.7.5 |
-| F5. Hiệu quả tương đối của các chiến lược join thay đổi theo workload | AQE có trung vị thấp nhất ở 12 ô synthetic v3. Salting có trung vị thấp hơn SMJ ở hai ô có bảng chiều lớn | Thiết kế thay đổi Zipf và dung lượng Parquet. Không suy ra hiệu năng của dữ liệu NYC từ lưới tổng hợp | 4.7.4–4.7.6 |
+| F5. Hiệu quả tương đối của các chiến lược join thay đổi theo workload | AQE có trung vị thấp nhất ở 12 ô synthetic v3; 60/60 final plan coalesce và không skew split. Salting có trung vị thấp hơn SMJ ở hai ô có bảng chiều lớn | Đây là kết quả hiệu năng của lưới tổng hợp, không phải bằng chứng AQE xử lý skew; thiết kế chưa cô lập tác động coalescing khỏi skew | 4.7.4–4.7.6 |
 | F6. Nhận diện và cập nhật hotspot phát sinh chi phí | P95 S3 mất 3,953 s ở action đầu. Jaccard trung vị của hai giờ liền kề trong tháng là 0,733 | Cộng chi phí nhận diện khi ước lượng cold start. Số liệu giờ là chẩn đoán độ ổn định của danh sách | 4.7.2–4.7.4 |
 | F7. ND4 chạy lại được trên cùng manifest | Hai phiên sau sửa warm-up hoàn tất sáu task Airflow và ghi 36 dòng OK/PASS | Kiểm tra khả năng chạy lại quy trình. Kết quả DuckDB kiểm chứng ở cấp phương án | 4.4–4.5 |
 | F8. Mật độ phía nam cao hơn phía bắc trong cả hai khung giờ | Trung vị theo Taxi Zone cao gấp 2,91 lần ban ngày và 2,57 lần ban đêm | So sánh mô tả theo hai nhóm zone của đường tham chiếu 60th Street | 4.6 |
@@ -263,7 +263,7 @@ Phạm vi kiểm chứng cần được hiểu theo cách runner tạo audit. Tr
 
 Trong phiên Phase C S3 ngày 23/11, cả 40 lượt có collector `OK` và đủ 40 final plan. Bốn audit DuckDB cấp phương án đều `PASS` trên cùng manifest Silver/OD. Lưới tổng hợp v3 và phép thử độ nhạy lần lượt có 240 và 60 dòng `OK/PASS`; trạng thái kiểm chứng vẫn được gắn từ audit cấp phương án của từng ô hoặc cấu hình.
 
-Trong năm tháng dữ liệu, mỗi bài toán có 45 dòng metadata đo lường (ba phương án × ba lượt × năm tháng), tổng cộng 90 dòng cho ND2 và ND3. Cả 90 dòng đều ghi bộ thu thập số liệu `OK` và trạng thái kiểm chứng cấp phương án là `PASS`; không có dòng nào bị loại khỏi bảng tổng hợp theo hai trạng thái này. Con số 90/90 mô tả trạng thái của các dòng metadata, không phải 90 phép đối soát DuckDB độc lập. Các dòng của ND4 Airflow tháng 03 không nằm trong 90 dòng theo tháng này; ND4 có thêm 18 dòng riêng ở lượt `nd4-march-clean-20261120`, đều `OK`/`PASS`.
+Trong năm tháng dữ liệu, mỗi bài toán có 45 dòng metadata đo lường (ba phương án × ba lượt × năm tháng), tổng cộng 90 dòng cho ND2 và ND3. Đối chiếu lại CSV lượt đo và CSV audit theo từng tháng cho thấy cả 90 dòng đều ghi bộ thu thập số liệu `OK` và trạng thái kiểm chứng cấp phương án `PASS`; 30 audit cấp phương án (ba phương án × hai bài toán × năm tháng) đều đạt điều kiện của runner. Với ND2, số đếm khớp tuyệt đối, sai khác giá vé trung bình không vượt `1e-4` và sai khác tổng miles không vượt `1e-2`; với ND3, số chuyến và số vùng đón khớp tuyệt đối, sai khác fare/miles không vượt `0,05`. Audit chạy một lần cho kết quả cuối mỗi phương án trong từng application, rồi trạng thái được gắn vào ba lượt đo tương ứng; do đó, 90/90 là trạng thái dòng metadata đã được kiểm tra qua artifact audit, không phải 90 phép đối soát độc lập. Bảng kiểm tra các audit tháng 01–05 được lưu tại [`monthly_audit_recheck.csv`](../../../docs/refactor/evidence/monthly_audit_recheck.csv). Các dòng ND4 Airflow tháng 03 không nằm trong 90 dòng này; ND4 có thêm 18 dòng riêng ở lượt `nd4-march-clean-20261120`, đều `OK`/`PASS`.
 
 **Bảng 4.10. Trạng thái bộ thu thập số liệu và kiểm chứng được ghi trong metadata benchmark tháng 01–05**
 
@@ -400,7 +400,7 @@ Daytime kéo dài 16 giờ mỗi ngày, còn Nighttime kéo dài 8 giờ. Không
 
 Các nhóm trong Gold được tạo bằng đường 60th Street xấp xỉ và tỷ lệ diện tích đa giác nằm về mỗi phía. Đây là **nhóm phân tích địa lý của đồ án**, không phải nhãn chính thức “trong CRZ/ngoài CRZ”. Mô tả chương trình và geofence MTA có các đoạn đường bị loại trừ; phép phân loại theo Taxi Zone không biểu diễn đầy đủ các ngoại lệ đó ([NYC311 — Congestion Pricing Program](https://portal.311.nyc.gov/article/?kanumber=KA-03612), [MTA Central Business District Geofence trên NY Open Data](https://catalog.data.gov/dataset/mta-central-business-district-geofence-beginning-june-2024)).
 
-Nghiên cứu của Zhang, Sang và Wu về dịch vụ gọi xe, giao thông công cộng và phúc lợi được dùng làm tài liệu liên quan để đặt kết quả vào bối cảnh chính sách; bản được cung cấp là SSRN preprint 5549128, chưa phản biện ([SSRN 5549128](https://ssrn.com/abstract=5549128)). Dữ liệu Gold của đồ án chỉ mô tả lượt trả khách theo Taxi Zone và khung giờ, không tái tạo thiết kế đánh giá tác động hay các ước lượng của nghiên cứu đó. Một điểm trả khách ở zone phía nam cũng không tự chứng minh chuyến xe đã đi vào đúng geofence hoặc chịu khoản phí cụ thể.
+Nghiên cứu của Zhang, Sang và Wu [6] về dịch vụ gọi xe và giao thông công cộng được dùng để đặt kết quả vào bối cảnh chính sách. Bài đã xuất bản với tiêu đề *Congestion Pricing in New York City: Effects on Ride-Hailing and Transit*, trên *Transportation Research Part A: Policy and Practice*, tập 208 (2026), bài số 104966, DOI: [10.1016/j.tra.2026.104966](https://doi.org/10.1016/j.tra.2026.104966). Dữ liệu Gold của đồ án chỉ mô tả lượt trả khách theo Taxi Zone và khung giờ, không tái tạo thiết kế đánh giá tác động hay các ước lượng của nghiên cứu đó. Một điểm trả khách ở zone phía nam cũng không tự chứng minh chuyến xe đã đi vào đúng geofence hoặc chịu khoản phí cụ thể.
 
 ### 4.6.4. Trực quan hóa bằng bản đồ Kepler.gl
 
@@ -416,7 +416,7 @@ Kết quả Phase C bao gồm phép nối trên dữ liệu NYC S3, kiểm tra �
 
 ### 4.7.1. Đối chứng Spark tự chọn trên S3 ngày 22/11
 
-Flow-Join++ (Panduman, Ito & Onizuka, 2026) cung cấp cơ sở lý thuyết về dự đoán fanout/cardinality của heavy hitter, Heavy Hitter Push-Down và Broadcast Fast-Path cho distributed OLAP join. Đồ án chỉ thực hiện nhánh Spark tự chọn chiến lược join trên cùng workload OD để quan sát hành vi có liên quan một phần; đây không phải đối chứng Flow-Join++. Project chưa triển khai Scardina hoặc planner của Flow-Join++; ngưỡng auto-broadcast 10 MiB của Spark không tương đương cost/size-ratio threshold của Broadcast Fast-Path. Nguồn nghiên cứu: *Journal of Information Processing*, 34, 671–685, DOI: [10.2197/ipsjjip.34.671](https://doi.org/10.2197/ipsjjip.34.671).
+Flow-Join++ [7] cung cấp cơ sở lý thuyết về dự đoán fanout/cardinality của heavy hitter, Heavy Hitter Push-Down và Broadcast Fast-Path cho distributed OLAP join. Đồ án chỉ thực hiện nhánh Spark tự chọn chiến lược join trên cùng workload OD để quan sát hành vi có liên quan một phần; đây không phải đối chứng Flow-Join++. Project chưa triển khai Scardina hoặc planner của Flow-Join++; ngưỡng auto-broadcast 10 MiB của Spark không tương đương cost/size-ratio threshold của Broadcast Fast-Path. Nguồn nghiên cứu: *Journal of Information Processing*, 34, 671–685, DOI: [10.2197/ipsjjip.34.671](https://doi.org/10.2197/ipsjjip.34.671).
 
 **Bảng 4.16. Đối chứng chiến lược join trên S3 tích lũy trong cùng phiên bổ sung**
 
@@ -447,6 +447,10 @@ Salting thêm thao tác hash và nhân bản bảng chiều. Trong các phiên N
 
 Phiên chính Phase C ngày 23/11 (application `app-20261123043402-0000`) dùng 101.263.728 chuyến và 63.572 khóa OD. Event Log ghi hai executor trên hai Worker, mỗi executor có hai core và cấu hình heap 1.500 MiB. Bốn phương án hoàn tất đủ 10 block và đạt kiểm chứng theo mục 4.4.3. Lần thử 1.024 MiB dừng sau hai block khi tiến trình gắn với phiên bị kết thúc. Bảng dưới dùng riêng lượt đủ 10 block ở ngân sách 1.500 MiB.
 
+*Runtime S3 official ở Bảng 4.4 và 4.14 được đo với một core mỗi executor; phiên 10 block tại Bảng 4.17 dùng hai core mỗi executor. Do đó, mức Baseline khoảng 45,9 giây và 27,9 giây đến từ hai phiên có phân bổ tài nguyên khác nhau, không phải phép so sánh tốc độ được kiểm soát. Phân bổ core có thể góp phần tạo khác biệt, nhưng dữ liệu hiện có không cô lập được tác động của biến này.*
+
+*Runtime S3 official ở Bảng 4.4 và 4.14 được đo với một core mỗi executor; phiên 10 block tại Bảng 4.17 dùng hai core mỗi executor. Do đó, mức Baseline khoảng 45,9 giây và 27,9 giây đến từ hai phiên có phân bổ tài nguyên khác nhau, không phải phép so sánh tốc độ được kiểm soát. Phân bổ core có thể góp phần tạo khác biệt, nhưng dữ liệu hiện có không cô lập được tác động của biến này.*
+
 **Bảng 4.17. Thời gian và công việc của executor trong phiên S3 10 block**
 
 | Phương án | Trung vị [min–max] (s) | Tỷ số ghép cặp với SMJ [KTC 95%] | Tổng thời gian task¹ (s) | CPU executor¹ (s) | JVM GC¹ (s) |
@@ -468,7 +472,9 @@ Trên Silver tháng 01–05, tỷ trọng chuyến thuộc tập P95 tháng nằ
 
 ### 4.7.4. Dữ liệu tổng hợp và độ nhạy cấu hình
 
-Lưới v3 dùng seed 20261123, ba mức Zipf (0, 1, 2) và bốn mức kích thước Parquet của bảng chiều. Thiết kế tạo 12 ô, mỗi ô gồm năm block với bốn phương án. Cả 240 lượt có collector OK và kết quả đối soát PASS ở cấp phương án. Lưới v2 được giữ để chẩn đoán do một số plan tự chọn broadcast phía fact ngoài thiết kế. AQE đạt trung vị thấp nhất ở 12/12 ô. Có 7 ô mà khoảng bootstrap 95% của tỷ số giữa hai phương án đứng đầu nằm dưới 0,95, còn 5 ô chưa phân biệt được lợi thế 5%. Salting có trung vị thấp hơn SMJ ở hai ô dùng bảng chiều lớn, khoảng 12% ở ô Zipf 0 và 17% ở ô Zipf 2. AQE vẫn có trung vị thấp hơn ở cả hai ô này. Các lượt synthetic có 0 spill. Tất cả 60 final plan AQE của lưới có coalescing và chưa ghi nhận skew split.
+Lưới v3 dùng seed 20261123, ba mức Zipf (0, 1, 2) và bốn mức kích thước Parquet của bảng chiều. Thiết kế tạo 12 ô, mỗi ô gồm năm block với bốn phương án. Cả 240 lượt có collector OK và kết quả đối soát PASS ở cấp phương án. Lưới v2 được giữ để chẩn đoán do một số plan tự chọn broadcast phía fact ngoài thiết kế. AQE có trung vị thấp nhất ở 12/12 ô; median của AQE dao động từ 0,675 đến 1,984 giây. Có 7 ô mà khoảng bootstrap 95% của tỷ số giữa hai phương án đứng đầu nằm dưới 0,95, còn 5 ô chưa phân biệt được lợi thế 5%. Salting có trung vị thấp hơn SMJ ở hai ô dùng bảng chiều lớn, khoảng 12% ở ô Zipf 0 và 17% ở ô Zipf 2; riêng ô Zipf 0 cho thấy lợi thế của Salting cũng xuất hiện khi dữ liệu được sinh đồng đều, nên không thể quy chênh lệch đó cho giảm lệch khóa. AQE vẫn có trung vị thấp hơn ở cả hai ô này. Các lượt synthetic có 0 spill. Kiểm tra đủ 60 final plan AQE xác nhận tất cả vẫn dùng `SortMergeJoin` và có coalescing; không có plan nào chuyển sang broadcast hoặc ghi nhận skew split.
+
+*Quan sát AQE đứng đầu ở lưới này cho thấy hiệu năng tốt trong workload tổng hợp và cấu hình đã đo, nhưng không phải bằng chứng AQE đã xử lý skew. Thời gian AQE ngắn (0,675–1,984 giây theo median từng ô) và final plan coalescing phù hợp với khả năng quy mô công việc nhỏ và việc gộp phân vùng ảnh hưởng đáng kể đến runtime; thiết kế hiện tại chưa cô lập được nguyên nhân. Muốn phân biệt tác động của skew splitting với coalescing, cần thêm đối chứng SMJ được cấu hình để tạo số partition cuối tương đương với AQE, đồng thời giữ nguyên input và các biến khác. Đây là thí nghiệm chưa được thực hiện.*
 
 ![Hình 4.9 — Kết quả chọn phương án trên lưới tổng hợp](../../../docs/assets/chapter4/figure_4_9_synthetic_decision_map.png)
 
@@ -487,6 +493,51 @@ Lưới v3 dùng seed 20261123, ba mức Zipf (0, 1, 2) và bốn mức kích th
 | 200 | 64 MiB | 2,387 | 1,227 | 2,323 | 2,402 |
 
 *Ở hai dòng cuối, chỉ nhánh AQE sử dụng ngưỡng để xét phân vùng lệch. Các nhánh khác chạy lại làm đối chứng.*
+
+#### 4.7.4.1. Phân biệt tác động của coalescing và skew splitting
+
+Phiên bổ sung gồm 96 lượt đo trên hai workload tổng hợp, với sáu nhánh và tám block ghép cặp cho mỗi workload như mô tả tại mục 3.5.5.1. Cả 96 lượt có collector status `OK` và physical plan được lưu. DuckDB kiểm chứng thành công 12 kết quả chạy lại theo cặp workload–phương án; kết quả kiểm chứng được gán cho các dòng đo tương ứng. Đây không phải 96 phép kiểm chứng độc lập.
+
+Trên workload 2 triệu dòng, final plan của C có coalescing nhưng không có marker skew split ở cả 8 block. Trên workload 10 triệu dòng, C có marker `SortMergeJoin(skew=true)` và shuffle read bị chia skew ở 8/8 block, trong khi B không có marker split ở 8/8 block. Các plan của cả hai workload giữ Sort-Merge Join. Do đó, đối chiếu C/B trên workload 10 triệu dòng đi kèm bằng chứng split, còn C/B trên workload 2 triệu dòng chỉ cho biết tác động của việc bật cấu hình khi không quan sát được cơ chế này.
+
+**Bảng 4.18a. Tỷ số thời gian ghép cặp của thực nghiệm bổ sung**
+
+| Workload | Contrast | Median tỷ số | Bootstrap 95% CI | Diễn giải theo biên ±5% |
+|---|---|---:|---:|---|
+| 2 triệu | B/A0 — thêm coalescing | 0,642 | [0,546; 0,690] | Median thấp hơn 35,8%; khoảng nằm dưới 0,95 |
+| 2 triệu | C/B — bật skew optimization | 1,022 | [1,002; 1,080] | Không quan sát split; chưa phân định theo biên 5% |
+| 10 triệu | B/A0 — thêm coalescing | 0,821 | [0,787; 0,888] | Median thấp hơn 17,9%; khoảng nằm dưới 0,95 |
+| 10 triệu | C/B — bật skew optimization | 0,918 | [0,851; 0,989] | Median thấp hơn 8,2%; CI cắt biên 0,95 |
+| 10 triệu | E/C — Salting và coalescing so với AQE có skew | 1,148 | [1,065; 1,200] | Median cao hơn 14,8%; khoảng nằm trên 1,05 |
+| 10 triệu | D/A — Salting so với SMJ | 0,935 | [0,895; 0,957] | Median thấp hơn 6,5%; CI cắt biên 0,95 |
+
+*Tỷ số được tính trong cùng block; dưới 1 nghĩa là tử số nhanh hơn. CI percentile lấy mẫu lại 8 block, chưa hiệu chỉnh đồng thời. Kiểm định Wilcoxon–Holm bổ sung cho C/B của workload 10 triệu cho p hiệu chỉnh 0,0469; nhóm sáu kiểm định được chọn sau khi chạy. Đây là một application trên một máy vật lý, nên không coi các block là các lần triển khai độc lập.*
+
+Các contrast B/A0 cho thấy coalescing đi cùng wall-time thấp hơn trong cả hai workload đã đo. Khi thêm skew optimization trên workload 10 triệu, kết quả nghiêng về giảm wall-time và final plan xác nhận split; khoảng tin cậy chưa đủ hẹp để khẳng định mức giảm vượt 5%. TSR median ở stage chứa join giảm từ 1,81 ở B xuống 1,21 ở C. Đối chiếu Event Log với SQL execution ID và codegen ID xác nhận stage được chọn chứa join ở 96/96 lượt, nhưng stage có thể chứa cả partial aggregation; TSR không phải số partition được split. Disk spill median do collector ghi cho action B và C lần lượt khoảng 156,8 và 179,6 MiB; tổng spill trong phạm vi collector đã được đối chiếu với task Event Log và không thể quy riêng cho join.
+
+Trong workload 10 triệu, E chậm hơn C theo tỷ số median ghép cặp; D/A có xu hướng thấp hơn 1 nhưng chưa phân định theo biên thực hành. Kết quả chưa thiết lập được vùng Salting thắng AQE. Bảng chiều có hơn 5 triệu dòng, nhưng chỉ 13 dòng thuộc hotspot được nhân bản, thêm 91 dòng với S=8; phiên này chưa khảo sát được chi phí khi số dòng dimension nhân bản lớn. Mục 4.7.4.2 khảo sát hai mức nhân bản trong một phiên riêng. Hai workload có cùng bộ sinh và một môi trường thực thi; các kết luận chỉ áp dụng cho điều kiện đã đo và không thay thế kết quả NYC S3.
+
+*Nguồn: `data/benchmarks/phase_c/supplement_pilot_20261125_OQ8HCM/results/phase_c_supplement_confirmation_20261125T142141Z/`, gồm `runs.csv`, `paired_contrasts.csv`, `plan_activation_summary.csv`, `stage_execution_audit.csv`, `duckdb_audit.csv` và final plans; Event Log `logs/spark-events/app-20261125142144-0001`. Xem [audit confirmation](../../../docs/refactor/10_confirmation_evidence_audit.md).*
+
+#### 4.7.4.2. Ảnh hưởng của số dòng dimension được nhân bản
+
+Phiên synthetic bổ sung `app-20261128072824-0002` có 32 action đo, 8 block ghép cặp với bốn điều kiện B/E × mức thấp/cao. Collector và final plan đạt ở 32/32 lượt; chính output của 32 action được đối chiếu DuckDB ngoài đồng hồ và đều PASS. Event Log cho thấy metric `Generate` của nhánh E có 5.000.347 dòng ở cả tám lượt mức thấp và 5.700.347 dòng ở cả tám lượt mức cao, phù hợp số dòng dự kiến. Audit task xác nhận tổng shuffle read/write và memory/disk spill của 128 stage khớp collector; các tổng này không được gán riêng cho join.
+
+| Tỷ số trong cùng block | Median | Bootstrap 95% CI | Diễn giải theo biên ±5% |
+|---|---:|---:|---|
+| E/B mức thấp | 1,0096 | [0,9852; 1,0424] | Khoảng nằm trong [0,95; 1,05] |
+| E/B mức cao | 1,0063 | [0,9243; 1,0477] | Khoảng cắt biên dưới; chưa phân định |
+| (E/B cao)/(E/B thấp) | 0,9972 | [0,9381; 1,0632] | Khoảng cắt cả hai biên; chưa phân định |
+
+*CI percentile lấy mẫu lại tám block, chưa hiệu chỉnh đồng thời; 32 action chạy trong một application trên hai worker cùng host. Tỷ số dưới 1 nghĩa là tử số có wall-time nhỏ hơn mẫu số.*
+
+Mức cao làm `Generate` phát ra nhiều hơn 700.000 dòng so với mức thấp. Shuffle read median của E tăng từ khoảng 243,24 triệu lên 253,02 triệu byte, trong khi B ở hai mức lần lượt khoảng 239,38 và 239,27 triệu byte. Trong điều kiện này chưa phân định được replication bổ sung làm thay đổi chi phí wall-time tương đối của E so với B vượt biên 5%; không thể từ đó kết luận replication không có chi phí. Input được thay đổi khóa filler nên nén và phân bố hash có thể ảnh hưởng metric. Thí nghiệm so E với B, không so trực tiếp E với nhánh AQE skew join C; không xác lập vùng Salting thắng C hoặc ngưỡng tổng quát.
+
+*Nguồn: `data/benchmarks/phase_c/replication_pilot_20261128/confirmation_20261128T072821Z_GDPsIA/results/` gồm `runs.csv`, `paired_analysis.csv`, `paired_block_ratios.csv`, `generate_metric_audit.csv`, plan và output action; audit task ở thư mục `audit_io/` cùng cấp, Event Log `logs/spark-events/app-20261128072824-0002`. Xem [nhật ký](../../../docs/refactor/11_replication_experiment_execution_20261128.md).*
+
+#### 4.7.4.3. Biến động của đối chứng cùng plan
+
+Phiên `app-20261128075949-0004` chạy 16 action, gồm tám cặp X/Y cùng nhánh B. Cả 16 output khớp DuckDB, final plan trùng sau chuẩn hóa ID và shuffle/spill khớp Event Log trong phạm vi collector. Trung vị của `abs(Y/X − 1)` là 4,63%; khoảng quan sát là 0,09–10,80%, với bốn trong tám cặp vượt 5%. Đây là biến động quan sát được khi lặp cùng nhánh trong một application, một workload và một host; không phải ước lượng noise floor tổng quát và không thay thế CI của các phiên so sánh phương pháp. Xem [audit và số theo block](../../../docs/refactor/19_same_plan_diagnostic_8blocks_20261128.md).
 
 ### 4.7.5. Kích thước broadcast quan sát được
 
@@ -515,7 +566,7 @@ Manifest đánh dấu trước chín ô phát triển và ba ô giữ lại. Quy
 | Zipf 1, large | AQE | 1,934 | [0,526–0,798] | 0% |
 | Zipf 2, medium | AQE | 1,182 | [0,407–0,714] | 0% |
 
-*Cả bốn phương án hoàn tất và qua đối soát ở 12/12 ô. Ô Zipf 0, tiny chưa phân định được lợi thế theo ngưỡng 5%.*
+*Cả bốn phương án hoàn tất và qua đối soát ở 12/12 ô. Vì AQE có median thấp nhất ở cả chín ô phát triển, quy tắc hiện hành chọn AQE cho cả ba ô giữ lại và đạt regret 0%, đúng bằng mốc tham chiếu “luôn chọn AQE”. Do đó, kết quả giữ lại hiện chưa chứng minh quy tắc phân biệt được workload nào nên dùng phương án khác. Ô Zipf 0, tiny cũng chưa phân định được lợi thế theo ngưỡng 5%.*
 
 Regret trung vị và lớn nhất đều bằng 0% trên ba ô giữ lại. Mốc luôn chọn AQE cho kết quả giống hệt vì AQE dẫn đầu ở cả chín ô phát triển và cả ba ô giữ lại. Số ô kiểm tra còn ít, cùng bộ sinh và cụm hai Worker. Hồ sơ có bằng chứng về việc đánh dấu trước các ô giữ lại, nhưng chưa xác nhận quy tắc đã được khóa trước khi xem kết quả của các ô đó. Kết quả này dùng để đánh giá sơ bộ trong phạm vi bộ sinh. Xem [biên bản thực thi Phase C](../../03_pipeline_skew_benchmarks/docs/phase_c/phase_c_execution_report_20261123.md) để truy nguyên dữ liệu theo từng WP.
 
@@ -540,12 +591,12 @@ Bảng 4.21 tóm lược các tín hiệu cần kiểm tra trước khi lựa ch
 
 Hai Worker cùng chạy trên một máy vật lý. Số liệu shuffle phản ánh trao đổi dữ liệu ở cấp ứng dụng. Đồ án chưa đo lưu lượng qua NIC vật lý, thời gian chờ lưu trữ xuyên suốt hay chi phí đám mây. Các cửa sổ telemetry host/cgroup chỉ có ở một số phiên, nên nguyên nhân chênh lệch giữa các phiên S2 vẫn chưa xác định. So sánh chính của ND3 giữ trong cùng phiên S3 10 block, với giới hạn tài nguyên và cỡ mẫu ở mục 4.7.2.
 
-AQE gộp phân vùng trong các final plan đã đối chiếu. Bằng chứng về chia phân vùng lệch tải hiện chưa có trong workload này. Các ô tổng hợp dùng cùng bộ sinh và cụm máy. Tầng Gold dùng Taxi Zone và đường tham chiếu xấp xỉ 60th Street để mô tả phân bố trong tháng 01/2026. Kết luận về tác động chính sách cần một thiết kế nghiên cứu riêng.
+Ở NYC S3 và lưới synthetic v3 gốc, các final plan AQE đã đối chiếu cho thấy gộp phân vùng nhưng chưa có marker skew split. Phiên bổ sung quan sát được skew split trên workload synthetic 10 triệu dòng; kết quả đó không chứng minh cơ chế đã kích hoạt trên NYC S3. Các workload tổng hợp dùng cùng bộ sinh và cụm máy; confirmation chỉ có tám block mỗi workload trong một application, và DuckDB được kiểm tra theo phương án. Tầng Gold dùng Taxi Zone và đường tham chiếu xấp xỉ 60th Street để mô tả phân bố trong tháng 01/2026. Kết luận về tác động chính sách cần một thiết kế nghiên cứu riêng.
 
 ## 4.8. Tổng kết chương
 
-Baseline có trung vị thấp nhất trong các phép đo ND2. Trên NYC S3 10 block, Spark tự chọn BroadcastHashJoin đứng đầu (6,788 giây). AQE và SMJ chưa phân định theo ngưỡng 5%, còn Salting giảm một số tỷ số lệch task nhưng làm tăng thời gian và công việc executor. Chi phí quét P95 nâng ước lượng thời gian Salting lần đầu lên 36,298 giây. AQE gộp phân vùng, chưa quan sát thấy skew split.
+Baseline có trung vị thấp nhất trong các phép đo ND2. Trên NYC S3 10 block, Spark tự chọn BroadcastHashJoin đứng đầu (6,788 giây). AQE và SMJ chưa phân định theo ngưỡng 5%, còn Salting giảm một số tỷ số lệch task nhưng làm tăng thời gian và công việc executor. Chi phí quét P95 nâng ước lượng thời gian Salting lần đầu lên 36,298 giây. Final plan AQE của phiên NYC S3 cho thấy gộp phân vùng, chưa quan sát thấy skew split.
 
-Trên lưới tổng hợp, AQE có trung vị thấp nhất ở 12/12 ô. Quy tắc dựa trên độ lệch khóa và kích thước Parquet đạt cùng kết quả với mốc luôn chọn AQE ở cả ba ô giữ lại. Kết quả giới hạn trong workload và cấu hình đã đo.
+Trên lưới tổng hợp v3, AQE có trung vị thấp nhất ở 12/12 ô nhưng final plan chỉ cho thấy coalescing, không có skew split. Quy tắc dựa trên độ lệch khóa và kích thước Parquet chọn AQE ở cả ba ô giữ lại, đúng như mốc luôn chọn AQE; phép giữ lại chưa có sức phân biệt. Trong phiên bổ sung độc lập, coalescing làm giảm thời gian so với nhánh AQE không coalescing trên hai workload; trên workload 10 triệu, bật skew optimization cho median tỷ số 0,918 so với coalescing-only và plan có split 8/8, nhưng CI chưa xác lập mức cải thiện vượt 5%. Các kết luận này giới hạn ở workload và cấu hình đã đo; chưa xác định ngưỡng lựa chọn Salting.
 
 ND4 xác nhận quy trình có thể chạy lại trên cùng manifest qua Airflow. Phân tích Manhattan minh họa cách tầng Gold mô tả mật độ trả khách theo Taxi Zone quanh đường tham chiếu 60th Street.

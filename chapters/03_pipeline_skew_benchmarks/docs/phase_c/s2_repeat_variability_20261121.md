@@ -68,7 +68,7 @@ This is evidence of AQE coalescing, not skew-partition splitting. Broadcast rema
 - AQE final-plan table: `nd3_aqe_interventions_s1_s2_repeat.csv` in that directory.
 - Per-run container resources: `nd3_container_resources_s2_repeat.csv` in that directory.
 - Application Event Log: `logs/spark-events/app-20261121092615-0007`.
-- Reproduction/analysis code: `scripts/chapter_03/analyze_nd3_scaling_evidence.py`.
+- Reproduction/analysis code: `scripts/chapter_03/analysis/analyze_nd3_scaling_evidence.py`.
 
 **Decision:** keep S3 blocked for now. The repeat narrows within-session ranges but leaves a large shift between S2 sessions, with no host-level CPU/throttling or storage-wait evidence to attribute it. Do not combine the two sessions into one median or infer stable scaling. A further experiment should first control or measure host-level conditions; no multi-factor ablation is opened by this result. No DOCX was changed.
 

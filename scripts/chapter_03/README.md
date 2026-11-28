@@ -7,11 +7,16 @@ Chạy từ project root. Nhóm script theo vai trò:
 | Engine chung ND2/ND3 | `benchmark_engine.py` |
 | Aggregation (Nội dung 2) | `run_benchmark_nd2.py` |
 | Shuffle Join (Nội dung 3) | `run_benchmark_nd3.py` |
-| Task, AQE plan, and container-resource evidence | `analyze_nd3_scaling_evidence.py` |
+| Task, AQE plan, container-resource evidence và các phân tích Phase C | `analysis/` |
 | OD theo tháng và preflight khóa | `build_monthly_od_matrix.py`, `audit_od_matrix_keys.py` |
 | Tổng hợp benchmark tháng độc lập | `run_monthly_scaling_benchmarks.sh`, `aggregate_scaling_benchmarks.py` |
 | Spatial Gold và Kepler | `build_spatial_gold.py`, `build_kepler_spatial_artifact.py` |
-| Hình và notebook | `plot_*.py`, `generate_notebooks.py`, `test_notebook_execution.py` |
+| Hình và notebook | `plot_*.py`, `generate_notebooks.py`, `test_notebook_execution.py`; hình quy mô raw nằm trực tiếp trong `notebooks/chapter_03/04_chapter3_artifact_checks.ipynb` |
+| Phase C: synthetic và sensitivity | `generate_phase_c_synthetic.py`, `run_phase_c_synthetic_grid.py`, `run_phase_c_sensitivity.py`; phân tích trong `analysis/` |
+| Phase C bổ sung: pilot và confirmation | `run_phase_c_supplement_pilot.sh`, `run_phase_c_supplement_confirmation.sh`, `run_phase_c_supplement_ablation.py` |
+| Phase C bổ sung: phân tích và audit | `supplement_audit/` (phân tích, chuẩn bị dimension và đối chiếu Event Log); `audit_phase_c_aqe_plans.py` |
+
+Trạng thái phiên bổ sung, lệnh và giới hạn: [nhật ký](../../docs/refactor/09_paper_supplement_execution_log.md) và [audit confirmation](../../docs/refactor/10_confirmation_evidence_audit.md). Không gộp pilot, confirmation và các phiên NYC vào cùng một mẫu.
 
 Artifacts được ghi vào `data/benchmarks/`, `data/silver/` và `data/gold/`; không gom output sinh ra vào cùng thư mục mã nguồn. Điểm vào benchmark là hai runner ND2/ND3. Xem [bản đồ Nội dung 1–4](../../docs/project_map_content_1_to_4.md) để biết đầu vào, output và giới hạn từng phần.
 
@@ -19,9 +24,9 @@ Runner ND3 hiện gọi action cho từng warm-up. Để chạy pilot có Broadc
 
 Mức S2 tích lũy tháng 01–03 được chuẩn bị bằng `prepare_cumulative_s2.py`: script tạo Silver mới, OD và P95 cùng phạm vi, kèm `s2_input_manifest.json`; không chỉnh dữ liệu Silver từng tháng. [Biên bản S2](../../chapters/03_pipeline_skew_benchmarks/docs/phase_b/s2_cumulative_nd3_pilot_20261121.md) ghi kết quả pilot ND3 và giới hạn. Các lượt S2 không thuộc bảng năm tháng độc lập.
 
-Runner ND2 cũng hỗ trợ `--pilot-iterations 3`. `compare_s1_s2_pilots.py` đối chiếu CSV pilot ND2/ND3 S1–S2, từ chối run thiếu audit/telemetry, thiếu hai Worker hoặc lẫn manifest/application. Bảng đã tạo nằm ở `data/benchmarks/scaling/s2_jan_mar/s1_s2_pilot_comparison.csv`.
+Runner ND2 cũng hỗ trợ `--pilot-iterations 3`. `analysis/compare_s1_s2_pilots.py` đối chiếu CSV pilot ND2/ND3 S1–S2, từ chối run thiếu audit/telemetry, thiếu hai Worker hoặc lẫn manifest/application. Bảng đã tạo nằm ở `data/benchmarks/scaling/s2_jan_mar/s1_s2_pilot_comparison.csv`.
 
-`analyze_nd3_scaling_evidence.py` nhận nhiều bộ run CSV/Event Log, kiểm tra trạng thái correctness/collector và xuất task records, AQE final-plan interventions cùng resource windows từ log `podman stats`. Cách dùng và giới hạn diễn giải được ghi trong [biên bản Phase C S2 repeat](../../chapters/03_pipeline_skew_benchmarks/docs/phase_c/s2_repeat_variability_20261121.md).
+`analysis/analyze_nd3_scaling_evidence.py` nhận nhiều bộ run CSV/Event Log, kiểm tra trạng thái correctness/collector và xuất task records, AQE final-plan interventions cùng resource windows từ log `podman stats`. Cách dùng và giới hạn diễn giải được ghi trong [biên bản Phase C S2 repeat](../../chapters/03_pipeline_skew_benchmarks/docs/phase_c/s2_repeat_variability_20261121.md).
 
 ### Đối chứng Spark tự chọn chiến lược ND3 (Flow-Join++ related)
 
@@ -44,7 +49,7 @@ podman compose exec -T \
 
 Mỗi phương án có một lượt warm-up và ba lượt đo với thứ tự xoay vòng; kết quả được đối soát bằng DuckDB. Thư mục đầu ra tách biệt với `nd3_official_20261122` để không ghi đè artifact cũ.
 
-`--total-executor-cores 4` là mức tối đa yêu cầu; cấu hình 1.500 MiB mỗi executor và 2.048 MiB mỗi Worker hiện cấp hai executor một core, mỗi Worker một executor. Số cấp thực tế được kiểm tra trong worker evidence và Event Log. Lấy mẫu host/cgroup từ trước warm-up đến hết phiên bằng `sample_host_cgroup.py`, rồi ghép cửa sổ bằng `analyze_s2_host_telemetry.py`.
+`--total-executor-cores 4` là mức tối đa yêu cầu; cấu hình 1.500 MiB mỗi executor và 2.048 MiB mỗi Worker hiện cấp hai executor một core, mỗi Worker một executor. Số cấp thực tế được kiểm tra trong worker evidence và Event Log. Lấy mẫu host/cgroup từ trước warm-up đến hết phiên bằng `sample_host_cgroup.py`, rồi ghép cửa sổ bằng `analysis/analyze_s2_host_telemetry.py`.
 
 Sau khi benchmark hoàn tất, có thể chạy kiểm toán tần suất khóa OD độc lập; không chạy cùng lúc đo thời gian:
 

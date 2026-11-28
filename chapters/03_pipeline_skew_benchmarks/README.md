@@ -3,9 +3,7 @@
 ## Bản thảo
 
 - [Chương 3 hoàn chỉnh, từ mục 3.1 đến 3.7](manuscript/chapter3_complete.md)
-- [Mục 3.1](manuscript/chapter3_section_3_1.md)
-- [Mục 3.2–3.7](manuscript/chapter3_sections_3_2_to_3_5.md)
-- [Phương pháp Chương 3](manuscript/chapter3_methodology.md)
+- [Các bản nháp và ghi chú phương pháp trước đây](manuscript/drafts/README.md). Bản hoàn chỉnh ở trên là đầu mối biên tập hiện tại; các bản nháp không tự đồng bộ với nó.
 
 ## Audit và bằng chứng nghiên cứu
 
@@ -18,9 +16,9 @@
 
 - ND2/ND3: `scripts/chapter_03/benchmark_engine.py`, `scripts/chapter_03/run_benchmark_nd2.py`, `scripts/chapter_03/run_benchmark_nd3.py`.
 - Scaling: `scripts/chapter_03/run_monthly_scaling_benchmarks.sh`, `scripts/chapter_03/aggregate_scaling_benchmarks.py`, `scripts/chapter_03/build_monthly_od_matrix.py`.
-- Hình 3.4 quy mô Raw theo tháng: `scripts/chapter_03/plot_figure_3_4_data_scale.py`.
+- Hình 3.4 quy mô Raw theo tháng: notebook `notebooks/chapter_03/04_chapter3_artifact_checks.ipynb`, mục Hình 3.4.
 - Spatial/Kepler: `scripts/chapter_03/build_spatial_gold.py`, `scripts/chapter_03/build_kepler_spatial_artifact.py`.
-- Phân tích ổn định hotspot theo giờ: `scripts/chapter_03/analyze_hotspot_hourly_stability.py`.
+- Phân tích ổn định hotspot theo giờ: `scripts/chapter_03/analysis/analyze_hotspot_hourly_stability.py`.
 - Notebook: `notebooks/chapter_03/02_benchmark_aggregation_salting.ipynb`, `notebooks/chapter_03/03_benchmark_join_skew.ipynb`, `notebooks/chapter_03/04_chapter3_artifact_checks.ipynb`.
 
 ## Artifact chính

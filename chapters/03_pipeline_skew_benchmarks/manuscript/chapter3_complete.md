@@ -119,7 +119,7 @@ Phân tích đa giác Taxi Zone ở mục 3.6 là một nhánh địa lý khác.
 
 CIBPartitioner của Yang và cộng sự ước lượng cường độ tính toán bằng histogram dạng lưới để cân bằng phân hoạch cho phép nối hình học. Đồ án vận dụng câu hỏi về sự khác nhau giữa số lượng bản ghi và khối lượng công việc. ND3 dùng khóa ghép OD và đo công việc qua các chỉ số task của Spark. [Yang và cộng sự, CIBPartitioner](https://doi.org/10.1080/10095020.2025.2510364)
 
-Flow-Join++ (Panduman, Ito & Onizuka, 2026) giải quyết skew trong distributed OLAP joins bằng cách ước lượng cardinality/fanout để nhận diện heavy hitter; bài còn đề xuất Heavy Hitter Push-Down và Broadcast Fast-Path, với thực nghiệm Phone Bill/TPC-H trên cụm Spark EMR nhiều nút (*Journal of Information Processing*, 34, 671–685, DOI: [10.2197/ipsjjip.34.671](https://doi.org/10.2197/ipsjjip.34.671)). Điểm liên quan là bài đặt ra câu hỏi chiến lược join nên xét cả fanout khóa và khả năng broadcast, không chỉ cân bằng số bản ghi. Phạm vi của đồ án khác: ND3 là một phép inner equi-join hai bảng trên khóa OD, so sánh AQE và salting có quy tắc P95 trên dữ liệu taxi; project chưa có mô hình Scardina, cardinality prediction hay Heavy Hitter Push-Down. Câu hỏi thực nghiệm trong phạm vi đề tài là: trên workload OD thực và một cụm Spark cùng host, các nhánh AQE/Selective Salting biểu hiện thế nào so với baseline có kiểm soát và chiến lược Spark tự chọn. Đây là đối chiếu thực nghiệm theo workload, không phải triển khai hoặc tái lập Flow-Join++.
+Flow-Join++ [7] giải quyết skew trong distributed OLAP joins bằng cách ước lượng cardinality/fanout để nhận diện heavy hitter; bài còn đề xuất Heavy Hitter Push-Down và Broadcast Fast-Path, với thực nghiệm Phone Bill/TPC-H trên cụm Spark EMR nhiều nút (*Journal of Information Processing*, 34, 671–685, DOI: [10.2197/ipsjjip.34.671](https://doi.org/10.2197/ipsjjip.34.671)). Điểm liên quan là bài đặt ra câu hỏi chiến lược join nên xét cả fanout khóa và khả năng broadcast, không chỉ cân bằng số bản ghi. Phạm vi của đồ án khác: ND3 là một phép inner equi-join hai bảng trên khóa OD, so sánh AQE và salting có quy tắc P95 trên dữ liệu taxi; project chưa có mô hình Scardina, cardinality prediction hay Heavy Hitter Push-Down. Câu hỏi thực nghiệm trong phạm vi đề tài là: trên workload OD thực và một cụm Spark cùng host, các nhánh AQE/Selective Salting biểu hiện thế nào so với baseline có kiểm soát và chiến lược Spark tự chọn. Đây là đối chiếu thực nghiệm theo workload, không phải triển khai hoặc tái lập Flow-Join++.
 
 ### 3.3.2. Cơ chế nhận diện và chia nhỏ phân vùng lệch tải trong AQE Skew Join
 
@@ -139,7 +139,7 @@ Runner áp dụng `.hint("merge")` ở cả hai đầu join để yêu cầu Sor
 
 AQE có thể không kích hoạt skew splitting nếu partition không vượt ngưỡng, skew factor không đạt, hoặc phép join/plan không thuộc trường hợp Spark có thể tối ưu. Kết quả cũng phụ thuộc vào thống kê sau shuffle và điều kiện runtime. AQE không thay thế correctness audit, không bảo đảm mọi dạng lệch dữ liệu được xử lý, và chi phí điều chỉnh có thể ảnh hưởng thời gian.
 
-Đối chứng giữ nguyên dữ liệu, join key, join type, số shuffle partitions và hành động materialize; chỉ thay đổi AQE/skew settings theo ma trận. Các official final plan theo tháng thể hiện `isFinalPlan=true`, `SortMergeJoin` và AQE coalescing nhưng không có skew-specific partition splitting. Vì vậy kết quả hiện xác nhận AQE chạy, song skew split không được kích hoạt/không được chứng minh trên các input và cấu hình đã đo.
+Đối chứng giữ nguyên dữ liệu, join key, join type, số shuffle partitions và hành động materialize; chỉ thay đổi AQE/skew settings theo ma trận. Các official final plan theo tháng thể hiện `isFinalPlan=true`, `SortMergeJoin` và AQE coalescing nhưng không có skew-specific partition splitting. Do đó chưa quan sát được skew split trong các phiên official theo tháng; phiên synthetic bổ sung ở mục 3.5.5.1 được khảo sát riêng.
 
 Đối chiếu physical plan cuối của cùng đợt chạy được trình bày ở Bảng 4.7: Baseline giữ `SortMergeJoin` và hai `Exchange`; AQE có `AQEShuffleRead coalesced` nhưng không có node skew split. Các plan development được lưu riêng và không dùng làm bằng chứng cho kết luận chính thức.
 
@@ -207,6 +207,37 @@ Thực nghiệm tổng hợp v3 giữ hai triệu dòng fact mỗi ô, dùng ba 
 
 Phân hoạch tổng hợp gồm chín ô phát triển và ba ô giữ lại được chỉ định trong manifest trước khi đo. Quy tắc thăm dò chọn phương án có trung vị thấp nhất ở ô phát triển gần nhất theo số mũ Zipf và log₂ dung lượng Parquet. Đánh giá dùng chênh lệch tương đối với phương án khả thi, đúng kết quả và có trung vị thấp nhất ở ô giữ lại. Phép đối chiếu luôn chọn AQE giúp đánh giá liệu quy tắc dùng hai biến đầu vào có đem thêm giá trị trên lưới này hay không. Hồ sơ thiết kế nằm trong [giao thức Phase C](../docs/phase_c/implementation_protocol_v1.md).
 
+#### 3.5.5.1. Thực nghiệm bổ sung để phân biệt coalescing và skew splitting
+
+Để tách ảnh hưởng của các cơ chế AQE, nhóm thực hiện một phiên ablation độc lập với các phép đo NYC S3 và lưới synthetic v3. Hai workload dùng cùng bảng chiều 5.000.256 dòng và cùng Spark Standalone 3.5.9: workload 2 triệu dòng fact của ô strong-large v3 và workload 10 triệu dòng fact được sinh theo Zipf exponent 2,0 từ pilot. Workload 2 triệu dòng được chọn từ phiên trước có AQE coalescing nhưng chưa quan sát split; final plan của pilot 10 triệu dòng đã cho thấy skew split. Hai workload khác quy mô fact nên các tỷ số được tính riêng trong từng workload, không gộp để suy ra ảnh hưởng của riêng kích thước fact.
+
+| Ký hiệu | AQE | Coalescing | Skew optimization | Selective Salting |
+|---|---|---|---|---|
+| A: SMJ | Tắt | Tắt | Tắt | Tắt |
+| A0 | Bật | Tắt | Tắt | Tắt |
+| B | Bật | Bật | Tắt | Tắt |
+| C | Bật | Bật | Bật | Tắt |
+| D | Tắt | Tắt | Tắt | S=8 |
+| E | Bật | Bật | Tắt | S=8 |
+
+Các nhánh dùng phép nối OD và phép tổng hợp đầu ra giống nhau, 200 shuffle partitions ban đầu, skew factor 2 và threshold 16 MiB. Ngưỡng broadcast tĩnh và thích ứng được đặt -1; physical plan được kiểm tra để xác nhận Sort-Merge Join. Nhánh D và E dùng cùng danh sách hotspot đã lưu và cùng cách gán salt. Event Log ghi hai executor trên hai worker, mỗi executor 2 core; resource profile yêu cầu 1.024 MiB heap cho mỗi executor. Hai worker chạy trên cùng một máy vật lý.
+
+Mỗi workload được warm-up theo từng nhánh, rồi đo 8 block, mỗi block gồm đủ 6 nhánh với thứ tự được tạo từ seed cố định và các hoán vị vòng. Tổng số action đo là 96, không tính warm-up và đối soát. Thời gian là thời gian từ khi bắt đầu job group tới khi action tổng hợp được materialize. Các contrast chính theo block là B/A0, C/B và E/C; các contrast D/A, E/B được xem thêm để diễn giải. Trung vị tỷ số và khoảng bootstrap percentile 95% được tính bằng cách lấy mẫu lại block trong từng workload. Khoảng tin cậy chưa hiệu chỉnh đồng thời; nhóm sáu kiểm định Wilcoxon–Holm được chọn sau khi chạy nên được báo như phân tích bổ sung, không nhận là đăng ký trước. Biên thực hành ±5% được nêu trong kế hoạch.
+
+Đối soát DuckDB chạy lại một kết quả cho mỗi cặp workload–phương án, kiểm tra số chuyến, tổng miles, tổng fare, số pickup zone và coverage theo cặp borough; trạng thái đó gán cho các lượt đo cùng phương án. Đây là 12 phép đối soát cấp phương án, không phải 96 phép so khớp độc lập. Với từng lượt, Event Log ghép SQL execution ID, stage attempt và final plan; TSR được tính từ task thành công trong stage được chọn, là stage có chứa join nhưng có thể đồng thời chứa các operator khác. Spill và shuffle được collector tổng hợp trên các stage thu thập cho action; chưa quy cho riêng operator join. Chi tiết protocol, CSV và audit được lưu theo application ID trong [nhật ký thực nghiệm bổ sung](../../../docs/refactor/09_paper_supplement_execution_log.md) và [audit confirmation](../../../docs/refactor/10_confirmation_evidence_audit.md).
+
+#### 3.5.5.2. Đo chi phí nhân bản dimension
+
+Một phiên tổng hợp bổ sung giữ nguyên fact 10 triệu dòng và hai dimension cùng 5.000.256 dòng. Hai dimension giữ tập khóa OD và giá trị khớp fact; các dòng không khớp được thay đổi khóa để số dòng dimension thuộc hotspot lần lượt là 13 và 100.013. Với S=8, số dòng tăng thêm dự kiến tương ứng là 91 và 700.091. Hai dimension có cùng schema, số dòng và 41 Parquet row group; thay đổi khóa filler vẫn có thể ảnh hưởng nén, hash partition và I/O, do đó là giới hạn của can thiệp.
+
+Thực nghiệm đối chiếu B (AQE và coalescing, không Salting) với E (cùng cấu hình, Salting S=8), ở mỗi mức dimension. Mỗi block gồm B thấp, E thấp, B cao và E cao theo thứ tự ngẫu nhiên xác định bằng seed, tổng tám block và 32 action đo. Action join và aggregate được materialize; output của chính mỗi action được lưu và so với DuckDB ngoài thời gian đo, với count chính xác và dung sai tuyệt đối 0,05 cho tổng đã làm tròn. Plan, Event Log, job group, SQL execution, config hiệu lực và checksum input được lưu. Metric số dòng của `Generate` được truy từ Event Log để đối chiếu replication thực sự trong action; shuffle/spill là tổng stage collector của action.
+
+Tính `R_thấp = E_thấp/B_thấp`, `R_cao = E_cao/B_cao` và `R_effect = R_cao/R_thấp` theo cùng block. Khoảng bootstrap percentile 95% lấy mẫu nguyên block, 100.000 lần, seed 20261128; CI chưa hiệu chỉnh đồng thời, không sử dụng kiểm định p-value. Các mức dimension, thứ tự, phạm vi đo, quy tắc dừng và phân tích được ghi trong protocol trước các action đo. Xem [nhật ký thực nghiệm](../../../docs/refactor/11_replication_experiment_execution_20261128.md).
+
+#### 3.5.5.3. Đối chứng lặp cùng plan
+
+Một phiên chẩn đoán độc lập dùng hai nhãn X/Y gọi cùng nhánh B trên fact 10M và dimension low, cùng action và cấu hình. Sau hai warm-up, tám block gồm hai action được cân bằng bốn thứ tự XY và bốn YX, thứ tự block theo seed 20261128. Trước khi diễn giải, output từng action được so với DuckDB; final plan, cấu hình, SQL execution và task Event Log được kiểm toán. Metric mô tả là `abs(Y/X − 1) × 100%` trong từng block. Đây là phép đo biến động tại một application và host, không phải so sánh hai chiến lược hay ước lượng noise floor phổ quát. Chi tiết và protocol: [audit đối chứng](../../../docs/refactor/19_same_plan_diagnostic_8blocks_20261128.md).
+
 ### 3.5.6. Điều phối ND4 và tái lập thực nghiệm
 
 DAG `chapter4_nd4_march_2026_benchmark` dùng Silver tháng 03 đã chuẩn bị. DAG gọi ND2, ND3 rồi kiểm chứng và đóng gói các kết quả. Thời gian benchmark lấy từ job group Spark. Mỗi lượt lưu DAG run ID, application ID, CSV đo, audit và fingerprint đầu vào. Phiên ngày 20/11 dùng runner ND3 cũ. Hai phiên ngày 22/11 xác nhận action warm-up và dùng cùng manifest Silver trong các lượt đo lặp.
@@ -219,7 +250,7 @@ Khi tái lập, xác nhận hai Worker đã đăng ký và chọn Silver, OD cù
 
 CRZ là khu vực Manhattan phía nam và bao gồm 60th Street, đồng thời có một số roadway/connection được loại trừ. Vì builder hiện tại gán các Taxi Zone citywide bằng đường tham chiếu 60th Street xấp xỉ và quy tắc diện tích 95%, kết quả được gọi là nhóm phân tích bắc/nam; không coi đó là lớp xác định zone nằm chính thức trong CRZ. Chi tiết đường tham chiếu và cách phân nhóm được ghi trong [ghi chú phương pháp không gian](../docs/chapter3_spatial_research_notes.md).
 
-Zhang, Sang và Wu phân tích chính sách bằng dữ liệu ride-hailing và subway giai đoạn 2024–2025, mô hình two-way fixed effects và khai thác khoản credit Lyft tạm thời để tách biệt phản ứng giữa các nền tảng. Abstract của bài báo cáo Uber giảm tối đa 6%, Lyft tăng 2–5% trong giai đoạn credit, tổng ride-hailing giảm 0,5–1,5% và subway tăng khoảng 1% theo thiết kế của họ. Đây là nghiên cứu SSRN preprint mà bản PDF ghi chưa qua peer review. Đồ án này khác về kỳ quan sát (01/2026), đơn vị tổng hợp (Taxi Zone × Day/Night), dữ liệu đầu ra và thiết kế: chỉ mô tả mật độ, không có kỳ trước chính sách/nhóm đối chứng để ước lượng tác động. Vì thế các ước lượng của bài Zhang et al. chỉ dùng làm bối cảnh và đối chiếu phương pháp, không dùng làm ground truth hay bằng chứng nhân quả cho số liệu Gold.
+Zhang, Sang và Wu [6] phân tích chính sách bằng dữ liệu ride-hailing và subway giai đoạn 2024–2025, mô hình two-way fixed effects và khai thác khoản credit Lyft tạm thời để tách biệt phản ứng giữa các nền tảng. Bài đã xuất bản trên *Transportation Research Part A: Policy and Practice*, tập 208 (2026), bài số 104966, với tiêu đề *Congestion Pricing in New York City: Effects on Ride-Hailing and Transit* (DOI: [10.1016/j.tra.2026.104966](https://doi.org/10.1016/j.tra.2026.104966)). Abstract báo cáo các ước lượng Uber giảm tối đa 6%, Lyft tăng 2–5% trong giai đoạn credit, tổng ride-hailing giảm 0,5–1,5% và subway tăng khoảng 1% theo thiết kế của nghiên cứu. Đồ án này khác về kỳ quan sát (01/2026), đơn vị tổng hợp (Taxi Zone × Day/Night), dữ liệu đầu ra và thiết kế: chỉ mô tả mật độ, không có kỳ trước chính sách/nhóm đối chứng để ước lượng tác động. Vì thế các ước lượng của bài Zhang et al. chỉ dùng làm bối cảnh và đối chiếu phương pháp, không dùng làm ground truth hay bằng chứng nhân quả cho số liệu Gold.
 
 ### 3.6.2. Xây dựng nhóm Taxi Zone theo phía đường tham chiếu
 
@@ -245,7 +276,7 @@ So sánh Bắc và Nam được thực hiện trong cùng khung giờ. Khi so Ng
 
 ### 3.6.6. Nguồn tham khảo và phạm vi vận dụng
 
-Định nghĩa hành chính và các tuyến đường được loại trừ dựa trên [NYC311](https://portal.311.nyc.gov/article/?kanumber=KA-03612) và bộ dữ liệu [MTA Central Business District Geofence](https://catalog.data.gov/dataset/mta-central-business-district-geofence-beginning-june-2024). Nghiên cứu của Zhang, Sang và Wu được dùng để đặt bối cảnh cho dữ liệu ride-hailing. Đối chiếu thiết kế và kết quả chính sách nằm ở mục 4.6.3. [SSRN 5549128](https://ssrn.com/abstract=5549128)
+Định nghĩa hành chính và các tuyến đường được loại trừ dựa trên [NYC311](https://portal.311.nyc.gov/article/?kanumber=KA-03612) và bộ dữ liệu [MTA Central Business District Geofence](https://catalog.data.gov/dataset/mta-central-business-district-geofence-beginning-june-2024). Nghiên cứu của Zhang, Sang và Wu [6] được dùng để đặt bối cảnh cho dữ liệu ride-hailing. Đối chiếu thiết kế và kết quả chính sách nằm ở mục 4.6.3. Bài đã xuất bản trên *Transportation Research Part A: Policy and Practice*, 208 (2026), bài số 104966, DOI: [10.1016/j.tra.2026.104966](https://doi.org/10.1016/j.tra.2026.104966).
 
 ## 3.7. Tổng kết chương
 
